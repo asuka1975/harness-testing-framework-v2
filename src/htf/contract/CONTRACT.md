@@ -33,7 +33,7 @@
   files/         そのステージの artifacts.writes の範囲の成果物の複製（相対パスを保つ）
 ```
 
-- `moment: start` は本体実行前、`end` は実行後に取る。`ordinal` は run 内の通し番号
+- `moment: start` は本体実行前、`end` は実行後に取る。`ordinal` は run 内の通し番号。`taken_at`（保存時刻）は保存形式だけの項目で、`Snapshot` 型には持たない
 - 保存するのは `writes` の範囲だけ。`reads` は前方のステージの `writes` に含まれる前提で、保存しない（復元時には戻り先より前のステージの終了時 files が作業ディレクトリに残っている）
 - memory は `writes` と独立に全体を保存する。`restore` は memory も開始時のものに戻し、`overlay` で carry を重ねる
 - 子 run のスナップショットは子の作業ディレクトリ配下の独立した store に取る（第 7 節）
@@ -43,13 +43,13 @@
 `evaluate` は一回の実行ごとに、この順で判定する。順序は固定で変えない（第2節「評価順序」）。
 
 1. **goal 指標（quantitative）**: `goal.quantitative` の各指標をレジストリから解決し、終了時スナップショットで計算して基準（`equals` / `min` / `max`）と比べる。
-   - 指標が値を返せない（例外）→ `UNKNOWN`（`decided_by: quantitative`）。goal 不成立とは区別する
-   - すべて成立 → 2 へ。一つでも不成立 → 3 へ（分類器には同じ呼び出しで聞くが、goal の選択肢は採らない）
+   - 指標が値を返せない（例外）→ `UNKNOWN`（`decided_by: quantitative`、理由は評価不能）。goal 不成立とは区別して記録する
+   - すべて成立 → 2 へ。一つでも不成立 → 3 へ。分類器には同じ呼び出しで同じ選択肢（goal を含む）を渡すが、goal の選択は採らない。分類器が goal を閾値以上の確信度で選んだ時は `UNKNOWN`（`decided_by: quantitative`、理由は指標と分類器の不一致。トリアージの対象）
 2. **goal 定性判定**: 分類器に状態文書（第 5.4 節）と選択肢（`goal.qualitative`、各 `end_state.description`。unknown を含む）を渡す。goal が選ばれ、確信度が閾値以上 → `GOAL`（`decided_by: qualitative`）
 3. **end_state 分類**: unknown 以外の end_state が選ばれ、確信度が閾値以上 → `END_STATE(state)`（`decided_by: classifier`）
 4. **unknown**: 上記のいずれでもない（unknown が選ばれた、または確信度が閾値未満）→ `UNKNOWN`（`decided_by: threshold`）
 
-閾値は分類器の較正結果から決め、根拠を記録する（第2節「分類器の検証」。F1 では未定）。`subworkflow` を持つステージでは 2 と 3 を集約規則で置き換える（第 7 節）。
+閾値は分類器の較正結果から決め、根拠を記録する（第2節「分類器の検証」。F1 では未定）。escalate 後に人間が `ContinueAsGoal` を返した時の Verdict は `GOAL`（`decided_by: human`）で、記録に人間の上書きとして残る（第 5.5 節）。`subworkflow` を持つステージでは 2 と 3 を集約規則で置き換える（第 7 節）。
 
 **フェーズゲート（決定 #5）**: フェーズの最終ステージが `GOAL` になった時だけ、`phase.goal.quantitative` を同じスナップショットで評価する。成立 → ゲート通過を記録して次のフェーズへ。不成立 → フェーズに戻り先が無いので `UNKNOWN` として escalate。前のフェーズのステージへロールバックしたら、その境界以降のゲート通過記録を無効化し、再び最終ステージを `GOAL` で抜けた時に再評価する。`phase.goal.qualitative` は文書上の説明で、分類器には渡さない。
 

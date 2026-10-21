@@ -1,0 +1,43 @@
+# 子ワークフロー（深さ 1）。主張一つにつき節を書いて検査する
+workflow:
+  name: leaf
+  description: 主張一つを節にする
+  inputs: [claim, extra_key]
+  phases:
+    - id: elaborate
+      name: Elaborate
+      description: 節を書いて検査する
+      goal:
+        qualitative: 節が主張と整合している
+        quantitative:
+          section_consistent: { description: 節が主張と矛盾しない, equals: true }
+      stages:
+        - id: write
+          name: Write
+          description: claim から section.md を書く
+          artifacts: { writes: [section.md], memory_in: [claim, inconsistencies] }
+          goal:
+            qualitative: section.md が主張を展開している
+            quantitative:
+              section_exists: { description: section.md がある, equals: true }
+          end_state:
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback: []
+        - id: check
+          name: Check
+          description: section.md と claim の整合を section-check.json に書く
+          artifacts:
+            reads: [section.md]
+            writes: [section-check.json]
+            memory_in: [claim]
+            memory_out: [inconsistencies]
+          goal:
+            qualitative: 節の全ての文が主張と整合している
+            quantitative:
+              section_consistent: { description: 節が主張と矛盾しない, equals: true }
+          end_state:
+            - id: inconsistent
+              description: 節の一つ以上の文が主張と矛盾する。矛盾箇所が section-check.json にある。
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback:
+            - { state: inconsistent, stage: write, carry: [inconsistencies], max: 1 }

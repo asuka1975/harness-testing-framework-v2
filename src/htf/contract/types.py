@@ -23,7 +23,7 @@ class VerdictKind(StrEnum):
 
 
 type DecidedBy = Literal[
-    "quantitative",  # goal 指標が不成立、または評価不能
+    "quantitative",  # goal 指標が評価不能、または不成立なのに分類器が goal を選んだ（不一致）
     "qualitative",  # 分類器が goal の記述を選んだ
     "classifier",  # 分類器が end_state の記述を選んだ
     "aggregate",  # 子 run の集約規則

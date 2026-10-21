@@ -1,0 +1,33 @@
+file | schema_errors
+carry_declared__not_in_memory_in.yaml | 0 
+carry_declared__not_in_memory_out.yaml | 0 
+end_state_rollback_bijection__duplicate_rollback.yaml | 0 
+end_state_rollback_bijection__missing_rollback.yaml | 0 
+end_state_rollback_bijection__unknown_has_rollback.yaml | 0 
+memory_in_source__unsourced.yaml | 0 
+metric_registered__unregistered.yaml | 0 
+ref_integrity__rollback_stage_missing.yaml | 0 
+ref_integrity__rollback_state_missing.yaml | 0 
+rollback_forward__self.yaml | 0 
+rollback_max__missing.yaml | 1 | 'max' is a required property
+rollback_max__zero.yaml | 1 | 0 is less than the minimum of 1
+schema__additional_property.yaml | 1 | Additional properties are not allowed ('extra' was unexpected)
+schema__metric_equals_and_min.yaml | 1 | {'description': '検証済みの割合', 'min': 0.8, 'equals': 1} is not valid under
+subworkflow_aggregate__child_state_missing.yaml | 0 
+subworkflow_aggregate__parent_state_unknown.yaml | 0 
+subworkflow_depth__nested.yaml | 0 
+subworkflow_inputs__child_inputs_mismatch.yaml | 0 
+subworkflow_inputs__each_not_in_memory_in.yaml | 0 
+subworkflow_inputs__workspace_outside_writes.yaml | 0 
+subworkflow_ref__cycle.yaml | 0 
+subworkflow_ref__missing_file.yaml | 0 
+unique_ids__duplicate_end_state.yaml | 0 
+unique_ids__duplicate_stage.yaml | 0 
+unknown_present__missing.yaml | 0 
+minimal.yaml | 0 
+with_subworkflow.yaml | 0 
+cycle_back.yaml | 0 
+leaf.yaml | 0 
+with_sub.yaml | 0 
+workflow.yaml | 0 
+elaborate-claim.yaml | 0 

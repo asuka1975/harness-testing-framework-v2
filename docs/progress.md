@@ -4,19 +4,20 @@
 
 ## 次にやること
 
-2026-10-22 に ADR-001〜005、007〜010 が決定した（ADR-009 は (b) を v1.0 に含める）。ツールチェーンの骨格は作成済み。F1 本体を次のタスク列で進める（第5.1節）。各タスクの完了条件はコマンドで確かめ、結果を本ファイルに残す。
+F1 本体は実装・検証済みで、検証役の報告も受け入れた。**人間ゲートで止まっている。** 決定は docs/decisions.md の ADR-011 に書く（直接編集でよい）。
 
-1. **完了条件（テスト）を先に書く**: `tests/test_schema_examples.py`（正例が通り負例が落ちる）、`tests/test_checker.py`（検査コードごとに負例があり、各負例がそのコードを報告する。コードカタログと負例集合の一致）、`tests/test_toy_minimal.py`（toy-minimal が検査を通り、要求された遷移の形を静的に含む）。完了条件: `uv run pytest --collect-only` が収集でき、実装前は失敗する
-2. **拡張スキーマ** `schema/workflow.schema.json` と `schema/examples/{positive,negative,children}/`、`schema/examples/metrics.json`。完了条件: `uv run pytest tests/test_schema_examples.py tests/test_repo_layout.py`
-3. **整合性検査器** `src/htf/testing/spec/`（`check_workflow`、`CODES`、CLI `python -m htf.testing.spec`）。完了条件: `uv run pytest tests/test_checker.py`
-4. **ハーネス契約** `src/htf/contract/`（Protocol と `CONTRACT.md`: 三操作、スナップショット形式、ステージ本体・指標・ユーザー入出力・LLM クライアント、6 種の遷移の列挙）。完了条件: `uv run ruff check . && uv run pytest`
-5. **toy-minimal** `examples/toy-minimal/workflow.yaml`、子 `elaborate-claim.yaml`、`metrics/manifest.json`。完了条件: `uv run python -m htf.testing.spec examples/toy-minimal/workflow.yaml --metrics examples/toy-minimal/metrics/manifest.json` が 0 で終わる
-6. **検証役**（実装を見ていない general-purpose サブエージェント。第5.10節の宣言を本ファイルに書いてから起動）: 完了条件の判定、toy-minimal の MECE 事前レビュー。書き先 `reports/verification/f1-contract-and-spec/`
-7. **人間ゲート**: スキーマと契約の承認、toy-minimal のレビュー、F1 で新たに確定した小決定の一覧（decisions.md の該当 ADR に「F1 で確定、ゲートで承認」の印）。F2 には入らない
+1. **人間ゲート（F1）**: 次の三つの回答を待つ。回答があるまで F2 には入らない
+   - スキーマ（`schema/workflow.schema.json`）と契約（`src/htf/contract/CONTRACT.md`、`types.py`、`interfaces.py`）の承認
+   - ADR-011 の小決定 11.1〜11.21 の承認（G7）
+   - ADR-011「ゲートで決めてほしい事項」G1〜G6（toy-minimal の記述の意味確定、分類体系の変更提案、集約規則の unknown 優先のスキーマ拡張、ステージ数の数え方）
+2. **G4 で (b) が選ばれたら**: 集約規則の `state` に `unknown` を許す拡張。完了条件を先に書く（正例 1、負例の `subworkflow_aggregate__parent_state_unknown` を正例側へ移し、代わりに「unknown 規則の後ろに置いた規則が到達不能」等の負例を置くか検討）→ スキーマ → 検査器 → CONTRACT.md 第 7 節 4 → toy-minimal の aggregate に unknown 規則を先頭に追加 → 検査
+3. **G1 / G3 / G5 で記述変更が承認されたら**: toy-minimal の該当記述を直し、`uv run python -m htf.testing.spec examples/toy-minimal/workflow.yaml --metrics examples/toy-minimal/metrics/manifest.json` と `uv run pytest` を通す
+4. **ゲート通過後、F2 に入る前に**: progress.md の「次にやること」を F2 のタスク列（loader、checkpoint、runner、oracle 基盤、recorder、toy-minimal の決定論的な偽ステージ本体、契約適合テスト、testing/harness のランナー、adopting.md 初版）に書き換える。テストは実装より先に**別コミット**にする（下記の運用規則）
+5. **運用上の確認（未回答）**: `reports/` を第4節の木に加えてよいか。`examples/software-factory/` の骨格を初期化で作らなかった判断でよいか。plan.md 第6節 F1 の「3〜4 ステージ」と F2 の「6 種の遷移」を ADR-009 (b) に合わせて改訂してよいか（計画エージェントが編集可能だが、計画書本文の変更は人間の確認を経たい）
 
-`reports/` の構造（本日決定）: `reports/verification/<task-id>/report.md`（検証役の報告）、`reports/dynamic/<id>/`（動的ワークフロー、第5.10節）、`reports/triage/`（F3 以降）。
+運用規則（本日追加。検証役の報告「時系列が判定不能」を受けて）: 完了条件のテストは実装より先に**別コミット**にし、そのコミットで `uv run pytest` が失敗する（または収集に失敗する）出力を progress.md に残す。
 
-人間に確認したい保留事項（決定ではなく運用上の確認）: `reports/` を第4節の木に加えてよいか。`examples/software-factory/` の骨格を初期化で作らなかった判断でよいか。
+`reports/` の構造: `reports/verification/<task-id>/report.md`（検証役の報告）、`reports/dynamic/<id>/record.md`（動的ワークフローの記録、第5.10節）、`reports/triage/`（F3 以降）。
 
 ## 2026-10-22
 
@@ -29,12 +30,33 @@
 - `docs/progress.md`（本ファイル）
 - 初期コミット
 
+**F1 本体（同日、人間の決定後）**
+
+- 決定の記録: ADR-001〜005、007〜010 の「決定」節（ADR-009 は推奨 (a) に対し人間が (b) を選択。計画エージェントが確認し「b で確定、v1.0 に含める」の回答を得た）。ADR-010 は推奨構成 + P2
+- ツールチェーン: pyproject.toml（uv、hatchling、ruff、pytest-cov）、uv.lock、.gitignore、`.github/workflows/ci.yml`（常時段のみ）。P2 配置（`src/htf/{contract,runtime,testing}`）。`tests/test_repo_layout.py` に初期化の完了条件を移植し、付録 A の構造保存の検査を追加
+- 完了条件のテストを先に作成: `tests/test_schema_examples.py`、`tests/test_checker.py`（`CODES` と負例集合の一致を含む）、`tests/test_toy_minimal.py`。実装前に `uv run pytest --collect-only` が収集エラー（`ImportError: cannot import name 'check_workflow'`）で止まることを確認（下記「検証」）
+- 拡張スキーマ `schema/workflow.schema.json`: artifacts（ADR-001）、指標の形（ADR-002）、carry / max、`user_input`（ADR-004）、`subworkflow` と `workflow.inputs`（ADR-009 (b)）、`version`、`additionalProperties: false`、`$defs`。付録 A の構造（properties / required / type / items）は保存
+- 正例 2、負例 29（検査コード 14 種すべてに 1 件以上。検証役の探針 4 件を昇格）、子 3（`schema/examples/`）、指標マニフェスト
+- 整合性検査器 `src/htf/testing/spec/`: `check_workflow` / `CODES` / `index_workflow` / CLI（終了コード 0 / 1 / 2、`--metrics` と `--metrics-module`）。子ワークフローの再帰検査、循環、深さ
+- ハーネス契約 `src/htf/contract/`: `CONTRACT.md`（三操作、スナップショット形式、評価順序、7 種の遷移、escalate の 4 解決、子ワークフロー、契約適合テストの項目）、`types.py`、`interfaces.py`、`tests/test_contract.py`
+- toy-minimal: `workflow.yaml`（2 フェーズ 4 ステージ。ユーザー待ち、carry、フェーズ内 / 境界越えロールバック、子ワークフロー呼び出し）、`elaborate-claim.yaml`（子 2 ステージ）、`metrics/manifest.json`。検証役の報告 W2〜W4 を反映
+- 検証役（動的ワークフロー `f1-contract-and-spec`）: 宣言 → 起動 → 報告の受け入れ。記録は `reports/dynamic/f1-contract-and-spec/record.md`、報告は `reports/verification/f1-contract-and-spec/report.md`。報告の処理は record.md の表
+- `docs/decisions.md` ADR-011: F1 で確定した小決定 11.1〜11.21 と、ゲートで決めてほしい事項 G1〜G7
+
 ### 未完了と理由
 
 - ツールチェーンの骨格（pyproject、CI、.gitignore）: ADR-010 が未決のため作っていない（計画書 F1「決定 #10 が出たらツールチェーンの骨格と CI の雛形を作る」）
 - スキーマの拡張、検査器、契約、toy-minimal: ADR-001 / 002 / 005 / 007 が未決のため着手していない
 - `examples/software-factory/` の骨格: 意図して作っていない。F4 の利用者セッションが adopting.md と雛形だけから作る成果物で、骨格を先に置くと adopting.md 以外のヒントを与えて F4 の検証（文書の十分性）が弱まる。人間が覆してよい
 - `docs/adopting.md`、`docs/harness-plan-template.md` のプレースホルダ: 同様に F2 / F5 の成果物なので作っていない
+
+**F1 本体**
+
+- 人間ゲート（スキーマと契約の承認、ADR-011 の承認、G1〜G6）: 人間の決定待ち
+- G4 (b) のスキーマ拡張（集約規則の unknown 優先）: 提案止まり。承認後に実装
+- toy-minimal の記述 W1（意味の確定が要る）と T1〜T4（分類体系の変更）: 提案止まり（第5.4節）
+- CI の実行: リモート未設定のため GitHub Actions は一度も動いていない。ローカルで同じコマンド（ruff check、ruff format --check、pytest --cov）を実行した
+- `htf.runtime` は空（F2）。`src/htf/testing/{harness,oracle,stages,e2e,triage}` も空（F2〜F3）
 
 ### 発見した問題
 
@@ -47,6 +69,22 @@
 - **第4節の木に `reports/` が無い**が、第5.9節（検証役の書き先は `reports/` のみ）と第5.10節（`reports/dynamic/<id>/`）が参照している。食い違いなので `reports/` を作成した。plan.md 本文への反映は人間の確認を待つ（plan.md は保護ファイルで計画エージェントが編集できるが、計画書本文の変更は人間の確認を経たい）
 - **第4節の木にフレームワーク自身のテスト（検査器のテスト、契約適合テスト等）の置き場が無い**。`testing/` はランナーの実装であってテストではない。ADR-010 の小決定（パッケージ配置）で `tests/` の追加として扱う
 - **`reports/` の内部構造が `reports/dynamic/<id>/` 以外は未定義**。検証役の報告の置き場（例: `reports/verification/<task>/`）は、F1 本体で検証役を初めて使う時に決めて記録する
+
+**toy-minimal（検証役の報告 2.4 節）**
+
+- 直した（意味を変えない範囲。ADR-011 11.21）: W2 `verify.inputs_missing` に不足一覧の成果物（report.json）を明記。W3 `verify.goal.qualitative` の「全て検証済み」と「検証できないものは仮定」の同居を解消。W4 `elaborate.sections_inconsistent` の「再試行の後も」（実行履歴）を成果物の条件に書き換え。子を持つステージの goal 定性が分類器に渡されない旨のコメント
+- 提案止まり（人間の承認が要る。decisions.md ADR-011 G1〜G5）: W1 `draft.inputs_insufficient` の意味確定。T1 `verify` で検証済み 8 割未満が毎回 unknown になる隙間。T2 goal の「仮定」と `inputs_missing` の境界。T3 集約で stuck と unknown が混在した時に unknown が人間に届かない。T4 子 `check_section` の「整合」の意味
+
+**F1 本体で見つかったもの**
+
+- 計画書 F2 の「6 種の遷移」は内訳が書かれていない。契約では next / rollback_within_phase / rollback_across_phase / escalate_unknown / escalate_max_exceeded / suspend_resume と読み、ADR-009 (b) の `subworkflow_aggregate` を加えて 7 種にした（ADR-011 11.13）。計画書の改訂は人間の確認待ち
+- 計画書 F1 の「3〜4 ステージ」は子ワークフローを想定していない（G6）
+- 集約規則で「子の unknown を親の unknown に優先」が書けない（検証役の報告 F1 → G4）。スキーマ拡張の提案
+- CONTRACT.md と types.py の食い違い 2 件（`taken_at`、`DecidedBy.quantitative`）→ 直した（ADR-011 11.18、11.19）
+- 負例の薄い箇所 4 件（検証役の報告 F4）→ 探針を負例に昇格（ADR-011 11.20）
+- ruff の E501 が全角文字を幅 2 で数えるため、日本語のコメントで誤検出する → `ignore = ["E501"]`（ADR-011 11.16）
+- ruff format が docs/ の Markdown 内コードブロックを整形した → `extend-exclude = ["docs", "reports"]`
+- スキーマの正本（`schema/`）と配布物の同梱（`htf/schema/`）の二重化 → `htf.schema.schema_path()` で解決（ADR-011 11.17）
 
 ### 実行した検証とその結果の要旨
 
@@ -118,6 +156,55 @@ def check(cond: bool, msg: str) -> None:
     if not cond:
         failures.append(msg)
 
+**F1 本体（同日）**
+
+完了条件のテストを先に書き、実装前に失敗することを確認した:
+
+```text
+$ uv run pytest --collect-only -q      （schema / checker / toy-minimal のテストを書いた直後、実装前）
+tests/test_toy_minimal.py:15: in <module>
+    from htf.testing.spec import check_workflow, index_workflow
+E   ImportError: cannot import name 'check_workflow' from 'htf.testing.spec'
+ERROR tests/test_checker.py
+ERROR tests/test_toy_minimal.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!
+exit=2
+```
+
+実装後（コミット ea27337 の時点）:
+
+```text
+$ uv run ruff check .                  → All checks passed!
+$ uv run ruff format --check .         → 21 files already formatted
+$ uv run pytest --cov=htf --cov-report=term-missing
+  58 passed（spec/checker.py 95%、cli.py 85%。contract/ は import する検査が無かったため 0% → tests/test_contract.py を追加して 63 passed）
+$ uv run python -m htf.testing.spec examples/toy-minimal/workflow.yaml --metrics examples/toy-minimal/metrics/manifest.json
+0 finding(s)   exit=0
+$ uv run python -m htf.testing.spec schema/examples/negative/subworkflow_ref__cycle.yaml --metrics schema/examples/metrics.json
+  … [subworkflow_depth] … [subworkflow_ref] 循環参照 … [subworkflow_ref] 子定義が検査を通らない … 4 finding(s)   exit=1
+```
+
+検証役の受け入れ（第5.10節。`reports/dynamic/f1-contract-and-spec/record.md`）:
+
+```text
+$ git status --short                    → ?? reports/verification/   のみ（保護ファイル・本体・テストに変更なし）
+$ uv run pytest -q                      → 63 passed
+$ uv run python -m htf.testing.spec examples/toy-minimal/workflow.yaml --metrics …  → 0 finding(s)
+```
+
+報告の処理後（W2〜W4 の修正、CONTRACT.md / types.py の修正、負例 4 件の昇格）:
+
+```text
+$ uv run ruff check . && uv run ruff format --check .   → All checks passed! / 22 files already formatted
+$ uv run pytest -q                                      → 67 passed
+$ for f in rollback_forward__later_stage metric_registered__phase_metric subworkflow_inputs__pass_not_in_memory_in unique_ids__duplicate_phase; do … ; done
+  [carry_declared] [memory_in_source] [rollback_forward]  <- rollback_forward__later_stage
+  [metric_registered]                                      <- metric_registered__phase_metric
+  [subworkflow_inputs]                                     <- subworkflow_inputs__pass_not_in_memory_in
+  [unique_ids]                                             <- unique_ids__duplicate_phase
+$ uv run python -m htf.testing.spec examples/toy-minimal/workflow.yaml --metrics examples/toy-minimal/metrics/manifest.json
+0 finding(s)   toy exit=0
+```
 
 # 1. 骨格
 for d in [

@@ -97,8 +97,8 @@ workflow:
             memory_out: [failing_checks, missing_inputs, claims]
           goal:
             qualitative: >-
-              draft.md の全ての主張が report.json で検証済みとして記録され、
-              検証できないものは仮定として明示されている。
+              draft.md の各主張が report.json で「検証済み」か「仮定」のどちらかとして記録され、
+              検証済みの主張が全体の 8 割以上ある。
             quantitative:
               report_exists:
                 description: report.json が存在しスキーマに適合する
@@ -114,7 +114,7 @@ workflow:
             - id: inputs_missing
               description: >-
                 検証に必要な入力が draft.md にも作業ディレクトリにも無い。
-                失敗ではなく、検証できていない。
+                不足する入力の一覧が report.json にある。失敗ではなく、検証できていない。
             - id: unknown
               description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
           rollback:
@@ -145,6 +145,7 @@ workflow:
               - state: sections_inconsistent
                 when:
                   any: { stage: check_section, state: inconsistent }
+          # 子を持つステージの goal 定性は分類器に渡されない（CONTRACT.md 第 7 節 4）。文書上の説明
           goal:
             qualitative: >-
               全ての検証済みの主張について sections/<i>/section.md があり、
@@ -156,8 +157,8 @@ workflow:
           end_state:
             - id: sections_inconsistent
               description: >-
-                一つ以上の節が、再試行の後も主張と矛盾したままである。
-                矛盾箇所の一覧が各節の section-check.json にある。
+                一つ以上の節の section-check.json が主張との矛盾を記録している。
+                矛盾箇所の一覧がその section-check.json にある。
             - id: unknown
               description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
           rollback:

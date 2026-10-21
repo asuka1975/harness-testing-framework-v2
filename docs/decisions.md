@@ -490,3 +490,26 @@ ADR-001〜010 の決定を実装に落とす時に、計画書にも ADR にも�
 ### 決定
 
 （未記入。「全て承認」または却下する番号）
+
+### 追加（検証役の報告 `reports/verification/f1-contract-and-spec/report.md` を受けて。実装済み、承認待ち）
+
+| # | 項目 | 内容 | 関係 | 却下時の戻し方 |
+| --- | --- | --- | --- | --- |
+| 11.18 | 指標不成立と分類器の不一致 | goal 指標が不成立でも分類器には同じ選択肢（goal を含む）を渡す。分類器が goal を閾値以上で選んだ時は `UNKNOWN`（`decided_by: quantitative`、理由は不一致。トリアージの対象）。`DecidedBy.quantitative` の意味を「評価不能、または不成立なのに分類器が goal」に揃えた。人間の `ContinueAsGoal` は `GOAL`（`decided_by: human`） | ADR-002、ADR-003、報告 F3 | CONTRACT.md 第 4 節と types.py の注記 |
+| 11.19 | `taken_at` は保存形式だけ | スナップショットの保存時刻は meta.json の項目で、`Snapshot` 型には持たない | 報告 F2 | CONTRACT.md 第 3 節 |
+| 11.20 | 探針の負例への昇格 | 検証役の探針 P1 / P2 / P4 / P6 を `schema/examples/negative/` に加えた（フェーズ指標の未登録、後ろのステージへの rollback、pass が memory_in に無い、フェーズ id の重複） | 報告 F4 | 4 ファイルの削除 |
+| 11.21 | toy-minimal の記述修正 W2〜W4 | 意味を変えない範囲の修正: inputs_missing に不足一覧の成果物（report.json）を明記、verify の goal 定性の内部矛盾を解消、sections_inconsistent を成果物の条件で記述、子を持つステージの goal 定性が分類器に渡されない旨のコメント | 報告 W2〜W4 | `git revert` |
+
+### ゲートで決めてほしい事項（未実装の提案。番号で回答）
+
+検証役の MECE 事前レビューで出た、人間の承認が要るもの。計画書第5.4節により分類体系の変更は提案止まり。
+
+| # | 場所 | 問題 | 選択肢 | 推奨 |
+| --- | --- | --- | --- | --- |
+| G1（報告 W1） | toy-minimal `draft.inputs_insufficient` | 「根拠の所在が無く」が collect の goal（所在はすべて埋まる）と読み合わせると曖昧 | (a) 「根拠の所在が指す先が作業ディレクトリに無いか空で」と意味を確定 (b) 現状のまま | (a) |
+| G2（報告 T1） | toy-minimal `verify` | 入力あり・失敗なし・検証済み 8 割未満が毎回 unknown（人間） | (a) v0 では unknown のままにし、頻度は実行観測で見る（第2節「end_state 記述は仮説」） (b) クラス追加「主張が検証可能な形でない（該当一覧が report.json）→ draft」 | (a) |
+| G3（報告 T2） | toy-minimal `verify` の goal と `inputs_missing` の境界 | どの不足なら「仮定」扱いにしてよいかが記述で決まらない | (a) goal に「仮定とは根拠はあるが検証手段が無い主張。根拠の所在が無い主張は仮定にできない」を足す (b) 現状のまま | (a) |
+| G4（報告 T3 / F1） | `elaborate` の集約規則 | 子 run が stuck と unknown で混在すると `any` 規則が勝ち、unknown が人間に届かない。現在のスキーマでは unknown 優先を書けない | (a) 許容する（verify の再実行で解消を期待） (b) スキーマ拡張: 集約規則の `state` に `unknown` を許し、明示の escalate として上に置けるようにする（CONTRACT 第 7 節 4 と検査器 `subworkflow_aggregate` の変更。F2 の runner に影響） | (b)。小さな拡張で、unknown を人間に届ける第2節の原則を守れる |
+| G5（報告 T4） | 子 `check_section` の「整合」 | 「claim から導けないが矛盾しない文」が unknown に落ちる | (a) `inconsistent` の記述を「claim と矛盾する、または claim から導けない文がある」に広げる（意味変更） (b) 現状のまま | (a) |
+| G6（報告 3-3） | 計画書 F1「3〜4 ステージ」の数え方 | 親 4 + 子 2 = 6 | (a) 親のステージ数で数える（子は別文書。ADR-009 (b) 以前の文言） (b) 合計で数え、toy-minimal を縮める | (a) |
+| G7 | ADR-011 の 11.1〜11.21 | F1 で確定した小決定の承認 | 全て承認 / 却下する番号 | 全て承認 |
