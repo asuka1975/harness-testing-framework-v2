@@ -4,27 +4,25 @@
 
 ## 次にやること
 
-F1 は人間ゲートを通過した（2026-10-22、全て承認）。人間は不在（就寝）で、F2 は人間ゲートが無いので自律的に進める。**止まる位置は F3 の v0.1 公開承認**（第5.5節の条件に当たれば、その前でも止まる）。
+F2 は完了（検証役の判定「満たす」を受け入れ、報告の B1〜B4 / B6 / B9 を修正して 113 passed、runtime 93%）。**F3（テストランナー群）に入る。** 人間は不在。止まる位置は **F3 の終わりの v0.1 公開承認**（pyproject の版は 0.1.0 に上げてよいが tag と Release は打たない）。第5.5節の条件に当たればその前でも止まる。
 
-F2 のタスク列（第5.1節）。各タスクの完了条件はコマンドで確かめ、結果を本ファイルに残す。契約（`src/htf/contract/`）は承認済みなので F2 では変更しない。変更したくなったら ADR-012「F2 で確定した小決定」に「契約への提案」として積み、F3 ゲートで出す。
+F3 のタスク列（第5.1節）。閾値（独立性の p 値、κ / ECE の許容差、マルコフ予測の許容差、N）はすべて仮置きで、コードでなく expectations / 設定に置き、ADR-013 に一覧にしてゲートに出す。依存は増やさない（χ² の分布関数が要る所は種を固定した並べ替え検定）。
 
-1. **完了条件のテストを先に書き、失敗を記録して別コミット**: `tests/test_runtime_transitions.py`（台本ごとの遷移列と、観測された遷移種の和集合が 7 種に等しいこと）、`tests/test_runtime_escalation.py`（4 つの解決）、`tests/test_runtime_recorder.py`（記録 → 再生で end スナップショットのハッシュ列が一致）、`tests/test_runtime_phase_gate.py`（ゲート不成立 → unknown、境界越えロールバックで無効化と再評価）、`tests/test_runtime_loader.py`（検査を通らない定義を拒否）、`tests/test_conformance_reference.py`（`htf.contract.conformance.ConformanceSuite` を継承）。台本は `examples/toy-minimal/tests/fixtures/scenarios/*.yaml`。完了条件: `uv run pytest --collect-only` が収集エラーで止まる出力を本ファイルに残す
-2. **model / loader**（`htf.runtime.model`、`loader`）: 検査器を通した定義だけを型付きモデルにする。子も再帰的に読む。完了条件: `uv run pytest tests/test_runtime_loader.py`
-3. **checkpoint**（`htf.runtime.checkpoint`）: store に start / end を取る、restore、overlay（未宣言の鍵は ContractViolation）。runner のメタデータディレクトリ（`.htf/`）は writes 外検出の対象外。完了条件: 契約適合テストの restore / overlay の項目
-4. **context + oracle**（`htf.runtime.context`、`oracle`）: 宣言の範囲だけ読み書きできる StageContext、評価順序（CONTRACT 第 4 節）、DictMetricRegistry、投影（reads ∪ writes ∪ memory_in）。完了条件: 契約適合テストの evaluate / ContractViolation の項目
-5. **recorder**（`htf.runtime.recorder`）: LLM・分類器・ユーザー回答の記録と再生（JSONL、順序照合、不一致は例外）。完了条件: `uv run pytest tests/test_runtime_recorder.py`
-6. **runner**（`htf.runtime.runner`）: 7 種の遷移、辺の max 計数、フェーズゲートの通過・無効化・再評価、中断（回答列を累積して開始時スナップショットから再実行）、escalate の 4 解決、子 run（親の集約へ）。完了条件: `uv run pytest tests/test_runtime_transitions.py tests/test_runtime_escalation.py tests/test_runtime_phase_gate.py`
-7. **toy-minimal の本体・指標・偽分類器・ユーザーシミュレータ**（`examples/toy-minimal/{stages,metrics,user}/`、`harness.py`）: 台本で制御する決定論的な偽本体。宣言どおりにだけ読み書きする。verify の本体は G3 の「仮定」の定義を反映する。完了条件: 6 と同じ
-8. **契約適合テスト**（`htf.contract.conformance`）: Runtime の 4 操作だけを対象にする継承可能なテストクラス。参照ランタイムが `tests/test_conformance_reference.py` で通す。完了条件: `uv run pytest tests/test_conformance_reference.py`
-9. **testing/harness**（`htf.testing.harness`）: 例のパッケージ読み込み、台本つき HumanDecider、遅延 / 待ち行列の UserIO、印を読む分類器、遷移の観測。完了条件: 1 のテストがこれだけを使って書ける
-10. **adopting.md 初版**（`docs/adopting.md`）: ハーネス側が満たすべきこと、組み込み方、契約適合テストの通し方。完了条件: toy-minimal の harness.py が adopting.md の手順だけで説明できる
-11. **カバレッジ**: CI に `uv run pytest --cov=htf.runtime --cov-fail-under=90` を独立のステップで。完了条件: ローカルで同じコマンドが通る
-12. **検証役**（新規 general-purpose。第5.10節の宣言を先に書く）: F2 完了条件の第三者判定。受け入れてから F3 へ
-13. **F3 に入る前に** 本節を F3 のタスク列に書き換える。F3 の終わりは v0.1 公開承認（人間ゲート）で止まる
+1. **完了条件のテストを先に別コミット**: `tests/test_f3_distribution.py`（確率的偽本体に対して正しい expectations が通り、ずらした expectations が落ちる）、`tests/test_f3_independence.py`（クラス内で意図的に下流分布を分けた偽本体を検出し、分けていないものは検出しない）、`tests/test_f3_oracle.py`（既知の混同行列と較正を持つ偽分類器に対して κ と ECE を許容差内で再現。違う κ を期待すると落ちる。再実行一致）、`tests/test_f3_e2e.py`（E2E 計画が toy-minimal の親子の全 (stage, end_state) を誘発か注入で踏む。マルコフ予測と実測が許容差内。分割した本体では外れる）、`tests/test_f3_triage.py`（unknown を一件、待ち行列 → ラベル → コーパスへ流す）。実装前の失敗を記録
+2. **runtime の評価ログと注入**: `RunResult.evaluations`（stage、進入回数、状態文書、選択肢、分類結果、Verdict。評価時に捕まえる）と `.htf/evaluations.jsonl`。`Runner(inject={(stage, n): Verdict})` で n 回目の進入の Verdict を差し替え、`reason` に注入と書く
+3. **確率的偽本体**（`examples/toy-minimal/stages/stochastic.py`）: 結果の供給元を種つきの分布に差し替える（成果物を書くコードは決定論的本体を再利用）。再進入（carry あり）で分布が変わるもの、`check_section` の `inconsistent` にクラス内で代表（carry の中身）ごとに下流分布を分けたものを含む
+4. **分布テストランナーと expectations 形式**（`htf.testing.stages`）: 起点（ワークフロー先頭。保存した開始時スナップショットは欄だけ用意）、N、種、(stage, 初回 / 再進入) ごとのクラス頻度の区間、run 全体の結果の頻度の区間。expectations は `examples/toy-minimal/tests/expectations/`
+5. **独立性検証と遷移行列**（`htf.testing.stages`）: 代表の鍵 `(stage, class, 評価記録) → key` は設定項目（既定は carry のハッシュ）。クラス内の群ごとの下流クラス分布を種つき並べ替え検定で比べる。遷移行列 P(class | stage, entry) の推定
+6. **オラクル検証**（`htf.testing.oracle`）: コーパス形式とラベル形式（JSONL）、κ（Cohen）、ECE、再実行一致、レポート
+7. **E2E**（`htf.testing.e2e`）: 定義から (stage, end_state) を列挙、誘発（台本）と注入（2）で覆う計画、カバレッジ報告（誘発 / 注入を区別）、マルコフ合成（5 の行列から run 全体の結果の確率を予測し実測と比べる）
+8. **トリアージ**（`htf.testing.triage`）: unknown と低確信度の評価記録を待ち行列（JSONL）に積む、一覧、ラベル付け、コーパスへの書き出し
+9. **pytest のマーカー**: `distribution` / `e2e` を分け、CI では今は常時（偽本体）。F5 で段階分け
+10. **ADR-013**: F3 で確定した小決定（閾値の仮置き、代表の鍵、並べ替え検定、形式の改訂回数）
+11. **版を 0.1.0 に**、v0.1 のゲート項目（ADR-012 / 013 の決定欄）を揃えて報告し、**止まる**。検証役（F3）はゲートの前に起動する
 
-運用規則: 完了条件のテストは実装より先に**別コミット**にし、そのコミットで `uv run pytest` が失敗する（または収集に失敗する）出力を progress.md に残す。
+運用規則: 完了条件のテストは実装より先に**別コミット**にし、そのコミットで `uv run pytest` が失敗する出力を progress.md に残す。expectations 形式の改訂は F3 内で 2 回まで（回数を本ファイルに残す。現在 0 回）。検証役の予算は探針を含むなら 25 万トークンを目安にする。
 
-`reports/` の構造: `reports/verification/<task-id>/report.md`（検証役の報告）、`reports/dynamic/<id>/record.md`（動的ワークフローの記録、第5.10節）、`reports/triage/`（F3 以降）。
+`reports/` の構造: `reports/verification/<task-id>/report.md`、`reports/dynamic/<id>/record.md`、`reports/triage/`（F3 から）。
 
 ## 2026-10-22
 
@@ -59,6 +57,13 @@ F2 のタスク列（第5.1節）。各タスクの完了条件はコマンド�
 - `htf.testing.harness`: `load_example_package`、`ScriptedHuman`、`DeferringUserIO`、`QueueUserIO`、`MarkerClassifier`、`EchoLLM`、`observed_kinds`
 - toy-minimal: 偽ステージ本体（`stages/`、台本で制御、宣言どおりにだけ読み書き）、指標レジストリ（`metrics/`、本物の値）、ユーザーシミュレータ（`user/`）、`harness.py`。collect の writes に `grounds/` を追加（根拠ファイルの置き場。G1 の「指す先が空」を成果物で作るため）
 - `docs/adopting.md` 初版、CI に runtime カバレッジ 90% の独立ステップ、ADR-012（F2 の小決定 12.1〜12.12 と契約への提案 12.13〜12.16）
+
+**F2 の完了（検証役の報告の処理）**
+
+- 検証役 `f2-runtime-and-tests` の報告（`reports/verification/f2-runtime-and-tests/report.md`）: 完了条件 6 項目すべて「満たす」。探針 8 件。問題 B1〜B10、W1〜W3、adopting.md の不足 17 点。予算はトークンを 7% 超過（準正常。`reports/dynamic/f2-runtime-and-tests/record.md`）
+- 回帰テストを先に別コミット（b5839c4、5 件失敗）→ 修正: B1 記録は試行単位で確定し中断した試行は破棄、B2 子 run 起動前に workspace 配下を空に、B3 ゲート不成立の escalate に ContinueAsGoal → 人間がゲートを通す、B4 最上位で human 無しは ContractViolation、B6 未消費の記録を検出、B9 `RunResult.child_results`
+- B5 / B7 / B8 / B10 と不足 17 点: adopting.md を実態に揃え、閾値 0.5 を仮置きとして記録。CONTRACT 第 8 節と第 7 節 1 の改訂は契約の変更なので提案（ADR-012 12.25 / 12.26）
+- W1 台本の規則を README に、W2 は v1.0 では誤認が起きない理由を記載、W3 verify に `goal_assumed`（台本 goal_assumed.yaml）
 
 ### 未完了と理由
 
@@ -269,6 +274,21 @@ $ uv run python -m htf.testing.spec examples/toy-minimal/workflow.yaml --metrics
 
 最初の実行で落ちたのは `test_replay_detects_mismatch` 1 件のみ（テストの前提の誤り。上記「本体の不足」）。
 子のユーザー入出力の拒否は、最初は子 Runner が中断状態で返すため「想定外の状態」の例外になった → 中断状態を「未対応」の `ContractViolation` に写した。
+
+**F2 の報告処理後**
+
+```text
+$ uv run pytest -q tests/test_runtime_f2_findings.py   （修正前、コミット b5839c4）
+FAILED test_b1_replay_reproduces_run_with_suspend_resume / test_b2_child_workspace_is_cleared_on_reentry /
+FAILED test_b3_continue_as_goal_passes_a_failed_gate / test_b4_top_level_runner_without_human_raises_on_escalate /
+FAILED test_b6_unconsumed_replay_entries_are_detected
+$ uv run ruff format . && uv run ruff check .             → 45 files left unchanged / All checks passed!
+$ uv run pytest -o addopts="" -q                           → 113 passed
+$ uv run pytest -q --cov=htf.runtime --cov-fail-under=90  → Required test coverage of 90% reached. Total coverage: 93.55%（行+分岐）
+$ uv run python -m htf.testing.spec examples/toy-minimal/workflow.yaml --metrics examples/toy-minimal/metrics/manifest.json → 0 finding(s)
+```
+
+注: pyproject の addopts が `-q` なので `pytest -q` は `-qq` 相当になり件数の行が出ない。件数を見る時は `-o addopts=""`。
 
 ### 動的ワークフローの宣言（第5.10節）: `f2-runtime-and-tests`
 
