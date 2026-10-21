@@ -206,6 +206,19 @@ $ uv run python -m htf.testing.spec examples/toy-minimal/workflow.yaml --metrics
 0 finding(s)   toy exit=0
 ```
 
+最終レビュー後の追加（同日）:
+
+- W3 の修正文「検証済みの主張が全体の 8 割以上ある」は quantitative の `verified_ratio: min 0.8` の言い換えで、定性に数値基準を持ち込んでいた（分類器に割合の判定を求め、指標との不一致を自分で作る）。「仮定とした主張にはその理由が記録されている」に直した（成果物の条件。ADR-011 11.21 の範囲）
+- ADR-011 11.17（wheel への同梱）を実行で確認: `uv build` → `unzip -l dist/*.whl | grep schema` → `htf/schema/workflow.schema.json`（14155 bytes）が入っている
+
+```text
+$ uv run pytest -q                                      → 67 passed
+$ uv run python -m htf.testing.spec examples/toy-minimal/workflow.yaml --metrics examples/toy-minimal/metrics/manifest.json
+0 finding(s)
+$ uv run ruff check .                                   → All checks passed!
+```
+
+
 # 1. 骨格
 for d in [
     "schema/examples",

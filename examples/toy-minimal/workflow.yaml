@@ -98,7 +98,7 @@ workflow:
           goal:
             qualitative: >-
               draft.md の各主張が report.json で「検証済み」か「仮定」のどちらかとして記録され、
-              検証済みの主張が全体の 8 割以上ある。
+              仮定とした主張にはその理由が記録されている。
             quantitative:
               report_exists:
                 description: report.json が存在しスキーマに適合する
