@@ -1,0 +1,91 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://example.com/workflow.schema.json",
+    "title": "Agentic Workflow",
+    "description": "ワークフロー型のエージェント向けハーネスのワークフロー定義",
+    "type": "object",
+    "properties": {
+        "workflow": {
+            "description": "ワークフロー定義",
+            "type": "object",
+            "properties": {
+                "name": { "description": "ワークフロー名", "type": "string" },
+                "description": { "description": "ワークフローの説明", "type": "string" },
+                "phases": {
+                    "description": "ワークフローに含まれるフェーズのリスト",
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "description": "フェーズ定義",
+                        "properties": {
+                            "id": { "type": "string", "description": "フェーズID" },
+                            "name": { "type": "string", "description": "フェーズ名" },
+                            "description": { "type": "string", "description": "フェーズの説明" },
+                            "goal": {
+                                "description": "フェーズのゴール定義",
+                                "type": "object",
+                                "properties": {
+                                    "qualitative": { "description": "フェーズの定性的ゴール", "type": "string" },
+                                    "quantitative": { "description": "フェーズの定量的ゴール。各指標をオブジェクトで定義し、満たすべき数値基準を記述する", "type": "object" }
+                                },
+                                "required": ["qualitative", "quantitative"]
+                            },
+                            "stages": {
+                                "description": "フェーズ内のより細かいステージのリスト",
+                                "type": "array",
+                                "items": {
+                                    "description": "ステージの定義",
+                                    "type": "object",
+                                    "properties": {
+                                        "id": { "type": "string", "description": "ステージID" },
+                                        "name": { "type": "string", "description": "ステージ名" },
+                                        "description": { "type": "string", "description": "ステージの説明" },
+                                        "goal": {
+                                            "description": "ステージのゴール定義",
+                                            "type": "object",
+                                            "properties": {
+                                                "qualitative": { "description": "ステージの定性的ゴール", "type": "string" },
+                                                "quantitative": { "description": "ステージの定量的ゴール。各指標をオブジェクトで定義し、満たすべき数値基準を記述する (ユーザーの承認がtrueかどうかや、ファイルの有無、テストの結果やカバレッジ等)", "type": "object" }
+                                            },
+                                            "required": ["qualitative", "quantitative"]
+                                        },
+                                        "end_state": {
+                                            "description": "ステージ終了時の状態の大まかな分類",
+                                            "type": "array",
+                                            "items": {
+                                                "description": "終了時の状態の分類の個別定義",
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": { "description": "終了時の状態の分類ID", "type": "string" },
+                                                    "description": { "description": "終了時の状態の定性的説明", "type": "string" }
+                                                },
+                                                "required": ["id", "description"]
+                                            }
+                                        },
+                                        "rollback": {
+                                            "description": "前のステージにロールバックすべき状態とどこにロールバックするか",
+                                            "type": "array",
+                                            "items": {
+                                                "description": "各ロールバックすべき状態とどこにロールバックするかの組み合わせ",
+                                                "type": "object",
+                                                "properties": {
+                                                    "state": { "description": "end_stateで定義された状態ID", "type": "string" },
+                                                    "stage": { "description": "workflow以下で定義されたこのステージより以前の全てのステージの中から一つのID", "type": "string" }
+                                                },
+                                                "required": ["state", "stage"]
+                                            }
+                                        }
+                                    },
+                                    "required": ["id", "name", "description", "goal", "end_state", "rollback"]
+                                }
+                            }
+                        },
+                        "required": ["id", "name", "description", "goal", "stages"]
+                    }
+                }
+            },
+            "required": ["name", "description", "phases"]
+        }
+    },
+    "required": ["workflow"]
+}
