@@ -16,6 +16,12 @@
    - F4 の準備: 第7節の二つ目のプロンプトで人間が別セッションを起動する。utilizer セッションが読めるのは adopting.md、harness-plan-template.md、toy-minimal、公開 API の文書だけ。harness-plan-template.md は F5 の成果物なので、F4 の前に最低限の雛形を置くかを人間に確認する（置かなければ adopting-gaps.md に「雛形が無い」が記録されるだけ）
 3. **F4 の間の通常セッション**: adopting-gaps.md を読んで本体を直す往復（第5.8節。toy-minimal で検証してから software factory で再検証）
 
+**人間不在の間に、定義と runtime の振る舞いで変えたもの（ゲートで一覧として見る）**:
+- 承認どおりの実装: G1 / G3 / G5 の記述変更、G4 (b) の集約規則 `state: unknown`、toy-minimal の版 0.2、plan.md の改訂（reports/、ステージ数の数え方、7 種の遷移）
+- toy-minimal の定義: collect の `writes` と draft の `reads` に `grounds/` を追加（根拠ファイルの置き場。第5.4節の「ワークフロー定義の問題は workflow.yaml へ」の範囲。分類体系は変えていない）
+- runtime の振る舞いで契約文書と差が出たもの（契約は変えず提案に積んだ）: 子 run 起動前に workspace 配下を空にする（12.17 → 提案 12.26）、記録は試行単位で確定（12.18）、ゲート不成立の escalate に ContinueAsGoal で通す（12.19）、契約適合テストの範囲（→ 提案 12.25）、開始時スナップショットの取得 `start`（→ 提案 12.14）
+- 検査器の性質の追加はしていない（12.13 / 12.16 は提案のまま）
+
 運用規則: 完了条件のテストは実装より先に別コミット。テストの変更も別コミットにして理由を本ファイルに残す（ADR-013 13.19）。expectations 形式の改訂は F3 内で 2 回まで（結果 0 回）。検証役の予算は探針を含むなら 25 万トークン。
 
 `reports/` の構造: `reports/verification/<task-id>/report.md`、`reports/dynamic/<id>/record.md`、`reports/triage/`。
@@ -102,6 +108,12 @@
 - 契約への提案（ADR-012 12.13〜12.16、12.25〜12.26）: 承認待ちのため未実装
 - expectations の起点「保存した開始時スナップショット」: 欄だけ（v0.1 では `workflow_start` のみ）
 - トリアージの記述改訂の提案: 作らない（人間の承認が要る。第5.4節）
+
+**F3 で見送った改善（v0.1 の後。文書化のみで未実装）**
+
+- 注入に carry を添える（検証役 F3 の B2。今は Verdict だけを差し替え、戻り先は空の carry で動く）
+- マルコフ合成の比較の粒度（13.11。completed / aborted の 2 値は粗い。ステージ別のクラス頻度や run 長の分布に広げる）
+- expectations の区間を「名目 ± k·SE」か信頼区間で書ける形式（13.4。形式の改訂は F4 の基準が出てから）
 
 ### 発見した問題
 
