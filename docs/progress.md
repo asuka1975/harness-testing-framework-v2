@@ -50,6 +50,16 @@ F2 のタスク列（第5.1節）。各タスクの完了条件はコマンド�
 - 検証役（動的ワークフロー `f1-contract-and-spec`）: 宣言 → 起動 → 報告の受け入れ。記録は `reports/dynamic/f1-contract-and-spec/record.md`、報告は `reports/verification/f1-contract-and-spec/report.md`。報告の処理は record.md の表
 - `docs/decisions.md` ADR-011: F1 で確定した小決定 11.1〜11.21 と、ゲートで決めてほしい事項 G1〜G7
 
+**F2 参照ランタイムと決定論テスト（同日、人間不在で自律進行）**
+
+- F1 ゲートの承認を記録し、G1 / G3 / G5 の記述変更と G4 (b)（集約規則の `state: unknown`）を実装。plan.md を承認どおり改訂（reports/、ステージ数の数え方、7 種の遷移）。toy-minimal の版を 0.2 に
+- 完了条件のテストを先に別コミット（3e79996）: 7 種の遷移（台本 8 本）、4 解決、記録再生、フェーズゲート、loader、契約適合テストの継承。実装前の収集エラーを記録
+- `htf.runtime`: model / loader / checkpoint / context / oracle / recorder / runner（ReferenceRuntime = 三操作 + start、Runner = 制御ループ）
+- `htf.contract.conformance`: 継承可能な `ConformanceSuite`（Runtime の 4 操作 + start だけを対象）と `conformance.yaml`。参照ランタイムが `tests/test_conformance_reference.py` で通す
+- `htf.testing.harness`: `load_example_package`、`ScriptedHuman`、`DeferringUserIO`、`QueueUserIO`、`MarkerClassifier`、`EchoLLM`、`observed_kinds`
+- toy-minimal: 偽ステージ本体（`stages/`、台本で制御、宣言どおりにだけ読み書き）、指標レジストリ（`metrics/`、本物の値）、ユーザーシミュレータ（`user/`）、`harness.py`。collect の writes に `grounds/` を追加（根拠ファイルの置き場。G1 の「指す先が空」を成果物で作るため）
+- `docs/adopting.md` 初版、CI に runtime カバレッジ 90% の独立ステップ、ADR-012（F2 の小決定 12.1〜12.12 と契約への提案 12.13〜12.16）
+
 ### 未完了と理由
 
 - ツールチェーンの骨格（pyproject、CI、.gitignore）: ADR-010 が未決のため作っていない（計画書 F1「決定 #10 が出たらツールチェーンの骨格と CI の雛形を作る」）
@@ -64,6 +74,12 @@ F2 のタスク列（第5.1節）。各タスクの完了条件はコマンド�
 - toy-minimal の記述 W1（意味の確定が要る）と T1〜T4（分類体系の変更）: 提案止まり（第5.4節）
 - CI の実行: リモート未設定のため GitHub Actions は一度も動いていない。ローカルで同じコマンド（ruff check、ruff format --check、pytest --cov）を実行した
 - `htf.runtime` は空（F2）。`src/htf/testing/{harness,oracle,stages,e2e,triage}` も空（F2〜F3）
+
+**F2**
+
+- 検証役による完了条件の第三者判定: 本セッションで起動する（下記の宣言）。受け入れてから F3 へ
+- ADR-012 の契約への提案 12.13〜12.16: F3 ゲートで決める（契約は承認済みなので F2 では変えない）
+- 子ワークフローのステージのユーザー入出力: v1.0 では未対応（`ContractViolation`。ADR-012 12.8）
 
 ### 発見した問題
 
@@ -92,6 +108,17 @@ F2 のタスク列（第5.1節）。各タスクの完了条件はコマンド�
 - ruff の E501 が全角文字を幅 2 で数えるため、日本語のコメントで誤検出する → `ignore = ["E501"]`（ADR-011 11.16）
 - ruff format が docs/ の Markdown 内コードブロックを整形した → `extend-exclude = ["docs", "reports"]`
 - スキーマの正本（`schema/`）と配布物の同梱（`htf/schema/`）の二重化 → `htf.schema.schema_path()` で解決（ADR-011 11.17）
+
+**toy-minimal（F2）**
+
+- collect の `writes` に `grounds/`、draft の `reads` に `grounds/` を追加した。根拠ファイルの置き場が宣言に無く、G1 の「根拠の所在が指す先が無いか空」を成果物で作れなかったため（分類体系の変更ではない。整合性検査 0 件）
+
+**F2 で見つかったもの（ADR-012 に記載）**
+
+- 契約の三操作に「開始時スナップショットの取得」が無く、契約適合テストが Runtime + `start` を要求した（12.14）
+- 束縛の鍵 (workflow 名, stage id) は親子で同名の workflow で衝突する。検査器に性質を足す提案（12.13）
+- フェーズゲート不成立の `Escalation.cause` が無い（12.15）。子のステージの `user_input` を静的に禁止したい（12.16）
+- 記録再生の不一致を作るには本体の振る舞い（台本の結果）を変える必要がある。入力（回答・LLM・分類器）は記録から来るので台本の入力を変えても要求は変わらない（テストの前提を直した）
 
 ### 実行した検証とその結果の要旨
 
@@ -225,6 +252,34 @@ $ uv run python -m htf.testing.spec examples/toy-minimal/workflow.yaml --metrics
 $ uv run ruff check .                                   → All checks passed!
 ```
 
+**F2 実装後**
+
+```text
+$ uv run ruff format . && uv run ruff check .             → 43 files left unchanged / All checks passed!
+$ uv run pytest -q                                        → 107 passed
+   内訳: 遷移の台本 8 本 + 7 種の和集合 + carry の検査（test_runtime_transitions）、4 解決 + 未宣言 carry の拒否
+   （test_runtime_escalation）、記録再生の同一性と不一致検出（test_runtime_recorder）、ゲート不成立 → unknown と
+   無効化・再評価（test_runtime_phase_gate）、loader の拒否、契約適合テスト 15 項目（test_conformance_reference）、
+   子のユーザー入出力の拒否（test_runtime_child_user）
+$ uv run pytest -q --cov=htf.runtime --cov-fail-under=90  → Required test coverage of 90% reached. Total coverage: 93.14%
+   runner.py 92%、oracle.py 87%、checkpoint.py 98%、context.py 90%、model.py 96%、recorder.py 95%、loader.py 100%
+$ uv run python -m htf.testing.spec examples/toy-minimal/workflow.yaml --metrics examples/toy-minimal/metrics/manifest.json
+0 finding(s)
+```
+
+最初の実行で落ちたのは `test_replay_detects_mismatch` 1 件のみ（テストの前提の誤り。上記「本体の不足」）。
+子のユーザー入出力の拒否は、最初は子 Runner が中断状態で返すため「想定外の状態」の例外になった → 中断状態を「未対応」の `ContractViolation` に写した。
+
+### 動的ワークフローの宣言（第5.10節）: `f2-runtime-and-tests`
+
+- **目的**: F2 の完了条件の第三者判定（7 種の遷移、escalate の 4 解決、参照ランタイムの契約適合、記録再生の同一性、runtime の行カバレッジ 90%）と、adopting.md 初版の十分性の読み（利用者として読んで toy-minimal の harness.py の手順が説明できるか）
+- **役割と人数**: 検証役 1（general-purpose サブエージェント。新規起動、fork は使わない）
+- **入力**: docs/plan.md（第6節 F2）、`src/htf/contract/CONTRACT.md`、`docs/adopting.md`、`docs/decisions.md`（ADR-011、ADR-012）、`tests/`、`examples/toy-minimal/`、`uv run pytest` と `uv run pytest --cov=htf.runtime --cov-fail-under=90` と検査器 CLI の出力。実装 `src/htf/runtime/` は読んでよいが判定の根拠は実行結果
+- **書いてよいパス**: `reports/verification/f2-runtime-and-tests/` のみ
+- **完了条件**: `report.md` に (1) F2 完了条件の各項目の判定（満たす / 満たさない / 判定不能）と根拠、(2) 自作の探針（台本を変えて遷移列が変わること、writes 外に書く本体や未宣言の emit が `ContractViolation` になること、再生で LLM 無しに同じ結果になること）、(3) adopting.md だけでは判断できない点の一覧、(4) 発見した問題（ワークフロー定義 / 本体）、(5) 判定できなかった事項
+- **予算**: トークン 20 万、時間 20 分、フレームワーク外の LLM 呼び出し 0
+- **反復の上限**: 1。**入れ子の深さ**: 0
+- **受け入れ**: 報告を読んだ後、本セッションで `uv run pytest` と CLI を再実行して受け入れる
 
 # 1. 骨格
 for d in [

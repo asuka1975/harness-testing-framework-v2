@@ -520,3 +520,49 @@ ADR-001〜010 の決定を実装に落とす時に、計画書にも ADR にも�
 | G5（報告 T4） | 子 `check_section` の「整合」 | 「claim から導けないが矛盾しない文」が unknown に落ちる | (a) `inconsistent` の記述を「claim と矛盾する、または claim から導けない文がある」に広げる（意味変更） (b) 現状のまま | (a) |
 | G6（報告 3-3） | 計画書 F1「3〜4 ステージ」の数え方 | 親 4 + 子 2 = 6 | (a) 親のステージ数で数える（子は別文書。ADR-009 (b) 以前の文言） (b) 合計で数え、toy-minimal を縮める | (a) |
 | G7 | ADR-011 の 11.1〜11.21 | F1 で確定した小決定の承認 | 全て承認 / 却下する番号 | 全て承認 |
+
+---
+
+## ADR-012 F2 の参照ランタイムで確定した小決定と、契約への提案
+
+- 状態: 提案（F3 の v0.1 公開ゲートで承認。契約への提案は承認まで実装しない）
+- 強制点: F3 ゲート（v0.1 公開承認）
+- 起票: 2026-10-22
+
+### 文脈
+
+承認済みの契約（`src/htf/contract/`）を変えずに参照ランタイムを実装するために決めた細部と、実装して分かった契約の不足。契約は F2 では変更していない。
+
+### 確定した小決定（実装済み。ゲートで承認）
+
+| # | 項目 | 内容 | 却下時の戻し方 |
+| --- | --- | --- | --- |
+| 12.1 | 束縛の鍵 | `Bindings.bodies` の鍵は (workflow 名, stage id)。親子で workflow.name が同じだと衝突する（検査器には未追加。12.13 参照） | 鍵を `ref` のパスにする |
+| 12.2 | メタデータディレクトリ | 作業ディレクトリ配下の `.htf/` は runner のもの（スナップショットの store）。保存・復元・writes 外検出・投影の対象外 | 名前を設定項目にする |
+| 12.3 | writes 外検出 | 本体の前後で作業ディレクトリ全体（`.htf/` を除く）を比較し、`writes` 外の変更を `ContractViolation` にする。`Runner(strict_writes=False)` で切れる。`reads` は検査しない。子 run が親の領域に書くのは検出しない | 既定を off にする |
+| 12.4 | フェーズゲートの評価 | フェーズの全ステージの `writes` の和を一つのスナップショット（stage_id = phase id、moment = end）にして `phase.goal.quantitative` を評価する | — |
+| 12.5 | 指標の視野 | 指標は `snapshot.files`（writes の範囲）と `snapshot.memory` だけを見る。必要な情報は成果物に書く | 指標に作業ディレクトリを渡す（契約の変更） |
+| 12.6 | 再開の実装 | 中断後の `resume(answer)` は回答を累積し、開始時スナップショットを復元して再実行する。再進入のたびに新しい start スナップショットを取る | — |
+| 12.7 | 子 run の作業ディレクトリ | `<workspace>/<subworkflow.workspace><i>/`。run 開始時に空にする。子の store は子の `.htf/`。親の `writes` に含まれるので親の終了時スナップショットに入る | — |
+| 12.8 | 子のユーザー入出力 | v1.0 では未対応。子の本体が `WaitingForUser` を投げたら `ContractViolation` にする | 子の中断を親に伝播させる実装 |
+| 12.9 | 人間の操作と計数 | `RollbackTo` は辺の計数を消費しない。`Rerun` も数えない。計数は run 全体でリセットしない（CONTRACT 第 6 節のとおり） | — |
+| 12.10 | ContinueAsGoal の後 | goal（decided_by: human）として通常の遷移（フェーズ最終ならゲート評価も）を行う | ゲートを飛ばす |
+| 12.11 | 記録再生の同一性 | `snapshot_digest` は files の内容と memory だけ。store のパス、ordinal、taken_at は含めない。再生時の不一致は `ReplayMismatch` | — |
+| 12.12 | 子を持つステージの遷移記録 | `subworkflow_aggregate` の記録の直後に、その判定による遷移（next / rollback / escalate）を別の記録として残す | 一つの記録に畳む |
+
+### 契約への提案（未実装。ゲートで決める）
+
+| # | 提案 | 理由 |
+| --- | --- | --- |
+| 12.13 | 検査器に「親子で `workflow.name` が重複しない」を加える（コード `subworkflow_ref` の一部、負例 1 件） | 12.1 の束縛の鍵が衝突するため |
+| 12.14 | 契約の三操作に「開始時スナップショットの取得」`start(stage, memory) -> Snapshot` を加える（CONTRACT 第 2 節） | 契約適合テストは最初のスナップショットをランタイムから得る必要があり、`htf.contract.conformance.ConformanceRuntime` は Runtime + start を要求している。今の CONTRACT は run の入力の出どころを書いていない |
+| 12.15 | `Escalation.cause` に `phase_gate_failed` を加える | 今はフェーズゲート不成立を `cause: unknown` + 理由文字列で表している |
+| 12.16 | 子ワークフローのステージの `user_input` を検査器で禁止する（12.8 の静的な前倒し） | 実行時の `ContractViolation` より早く分かる |
+
+### 推奨
+
+12.1〜12.12 を承認。12.13〜12.16 は v0.1 の前に実装してよい小さな変更なので、承認されれば F3 の中で行う。
+
+### 決定
+
+（未記入。F3 ゲート）

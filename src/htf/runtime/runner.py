@@ -266,7 +266,12 @@ class ReferenceRuntime:
                 strict_writes=self.strict_writes,
                 initial_memory=initial,
             )
-            result = child.run()
+            try:
+                result = child.run()
+            except WaitingForUser as w:
+                raise ContractViolation(
+                    f"子ワークフロー {sub.child.name!r} のユーザー入出力は v1.0 では未対応（質問: {w.question!r}）"
+                ) from w
             if result.status is RunStatus.COMPLETED:
                 outcomes.append(ChildOutcome(index=i, kind="goal"))
             elif result.status is RunStatus.ESCALATED and result.child_outcome is not None:
@@ -277,6 +282,11 @@ class ReferenceRuntime:
                         stage=result.child_outcome.stage,
                         state=result.child_outcome.state,
                     )
+                )
+            elif result.status is RunStatus.SUSPENDED and result.pending is not None:
+                raise ContractViolation(
+                    f"子ワークフロー {sub.child.name!r} のユーザー入出力は v1.0 では未対応"
+                    f"（質問: {result.pending.question!r}）"
                 )
             else:
                 raise ContractViolation(f"子 run {i} が想定外の状態で終わった: {result.status}")

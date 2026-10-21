@@ -21,3 +21,5 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pytest --cov=htf --cov-report=term-missing
+      # F2 の完了条件: runtime の行カバレッジ 90% 以上（独立のステップ。全体のカバレッジと混ぜない）
+      - run: uv run pytest -q --cov=htf.runtime --cov-fail-under=90

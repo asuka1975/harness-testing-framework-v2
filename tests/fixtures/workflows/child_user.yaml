@@ -1,0 +1,35 @@
+# 子ワークフローのステージがユーザー入出力を使う（v1.0 では未対応 → ContractViolation。ADR-012 12.8）
+workflow:
+  name: parent_user
+  description: 子がユーザーに質問する
+  phases:
+    - id: p
+      name: P
+      description: フェーズ
+      goal: { qualitative: 完了, quantitative: {} }
+      stages:
+        - id: seed
+          name: Seed
+          description: 項目を出す
+          artifacts: { writes: [seed.json], memory_out: [items] }
+          goal:
+            qualitative: seed.json がある
+            quantitative:
+              seed_exists: { description: seed.json がある, equals: true }
+          end_state:
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback: []
+        - id: fan
+          name: Fan
+          description: 項目ごとに子を起動する
+          artifacts: { writes: [runs/], memory_in: [items] }
+          subworkflow:
+            ref: child_user_child.yaml
+            each: items
+            item_as: item
+            workspace: runs/
+            aggregate: []
+          goal: { qualitative: 完了, quantitative: {} }
+          end_state:
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback: []

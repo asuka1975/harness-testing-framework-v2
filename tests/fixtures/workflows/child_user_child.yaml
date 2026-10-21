@@ -1,0 +1,19 @@
+workflow:
+  name: child_user
+  description: ユーザーに質問する子
+  inputs: [item]
+  phases:
+    - id: p
+      name: P
+      description: フェーズ
+      goal: { qualitative: 完了, quantitative: {} }
+      stages:
+        - id: ask
+          name: Ask
+          description: 質問して answer.txt に書く
+          user_input: true
+          artifacts: { writes: [answer.txt], memory_in: [item] }
+          goal: { qualitative: answer.txt がある, quantitative: {} }
+          end_state:
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback: []
