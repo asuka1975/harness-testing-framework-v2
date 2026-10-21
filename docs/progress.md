@@ -102,6 +102,7 @@ exit=1
   4. docs/decisions.md に ADR-001〜ADR-010 の見出しがあり、各 ADR に「決定」節がある
   5. docs/progress.md の先頭の節が「次にやること」で、固定された4つの小節を持つ
 """
+
 import json
 import re
 import sys
@@ -121,13 +122,25 @@ def check(cond: bool, msg: str) -> None:
 
 # 1. 骨格
 for d in [
-    "schema/examples", "contract", "runtime",
-    "testing/spec", "testing/harness", "testing/oracle", "testing/stages", "testing/e2e", "testing/triage",
-    "examples/toy-minimal/stages", "examples/toy-minimal/tests",
-    "docs", "reports",
+    "schema/examples",
+    "contract",
+    "runtime",
+    "testing/spec",
+    "testing/harness",
+    "testing/oracle",
+    "testing/stages",
+    "testing/e2e",
+    "testing/triage",
+    "examples/toy-minimal/stages",
+    "examples/toy-minimal/tests",
+    "docs",
+    "reports",
 ]:
     check((root / d).is_dir(), f"dir exists: {d}")
-check(not (root / "examples/software-factory").exists(), "examples/software-factory is NOT pre-created (F4 の成果物)")
+check(
+    not (root / "examples/software-factory").exists(),
+    "examples/software-factory is NOT pre-created (F4 の成果物)",
+)
 check((root / ".git").is_dir(), "git repository initialized")
 
 # 2. スキーマがメタスキーマに適合
@@ -145,13 +158,22 @@ plan = (root / "docs/plan.md").read_text(encoding="utf-8")
 m = re.search(r"## 付録 A.*?```json\n(.*?)```", plan, re.S)
 check(m is not None, "appendix A json block found in plan.md")
 if m and schema is not None:
-    check(json.loads(m.group(1)) == schema, "schema/workflow.schema.json equals appendix A (parsed JSON equality)")
-    check(schema_path.read_text(encoding="utf-8") == m.group(1), "schema/workflow.schema.json is byte-identical to appendix A block")
+    check(
+        json.loads(m.group(1)) == schema,
+        "schema/workflow.schema.json equals appendix A (parsed JSON equality)",
+    )
+    check(
+        schema_path.read_text(encoding="utf-8") == m.group(1),
+        "schema/workflow.schema.json is byte-identical to appendix A block",
+    )
 
 # 4. decisions.md
 dec = (root / "docs/decisions.md").read_text(encoding="utf-8")
 for i in range(1, 11):
-    check(re.search(rf"^## ADR-{i:03d}\b", dec, re.M) is not None, f"decisions.md has heading ADR-{i:03d}")
+    check(
+        re.search(rf"^## ADR-{i:03d}\b", dec, re.M) is not None,
+        f"decisions.md has heading ADR-{i:03d}",
+    )
 sections = re.split(r"^## ADR-", dec, flags=re.M)[1:]
 check(len(sections) == 10, f"decisions.md has exactly 10 ADR sections (found {len(sections)})")
 for s in sections:
@@ -163,11 +185,16 @@ for s in sections:
 # 5. progress.md
 prog = (root / "docs/progress.md").read_text(encoding="utf-8")
 heads = re.findall(r"^## (.+)$", prog, re.M)
-check(bool(heads) and heads[0].strip() == "次にやること", "progress.md first section is 次にやること")
+check(
+    bool(heads) and heads[0].strip() == "次にやること", "progress.md first section is 次にやること"
+)
 for h in ["完了したこと", "未完了と理由", "発見した問題", "実行した検証とその結果の要旨"]:
     check(re.search(rf"^### {h}", prog, re.M) is not None, f"progress.md has subsection {h}")
 for h in ["ワークフロー定義の問題", "フレームワーク本体の不足"]:
-    check(re.search(rf"^#### {h}", prog, re.M) is not None, f"progress.md splits 発見した問題 into {h}")
+    check(
+        re.search(rf"^#### {h}", prog, re.M) is not None,
+        f"progress.md splits 発見した問題 into {h}",
+    )
 
 print()
 print(f"{len(failures)} failure(s)")

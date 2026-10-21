@@ -1,0 +1,23 @@
+# CI の段階（計画書第5.7節）
+#   常時:     整合性検査と決定論テスト（この job）
+#   ナイトリー: オラクル検証（F5 で追加）
+#   手動:     分布テストと E2E（F5 で追加）
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  always:
+    name: 整合性検査と決定論テスト（常時）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest --cov=htf --cov-report=term-missing
