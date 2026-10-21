@@ -1,0 +1,9 @@
+R1 checks_failed_once: 記録の内訳 {'user': 3, 'classifier': 9, 'llm': 2}
+   end digest 一致: True  trace 一致: True  gates 一致: True  件数: 6
+R2 本体を変えた再生: ReplayMismatch: 記録 #6 と不一致: 期待 classifier {'document': '# stage: verify\n## memory_in\n## reads\n### draft.md\n```\n# 題目\n\noutcome: goal\n\n## 主張A\n\n[echo …
+R3 suspend_resume: 記録の内訳 {'classifier': 5, 'llm': 1}  status: completed  transitions: ['suspend_resume', 'suspend_resume', 'suspend_resume', 'next', 'next', 'next', 'subworkflow_aggregate', 'next']
+   resume 無しで再生: ReplayMismatch: 記録 #0 と不一致: 期待 classifier {'document': '# stage: collect\n## memory_in\n## reads\n## writes\n### inputs.json\n```\n{\n  
+   同じ resume 列で再生: ReplayMismatch（中断の経路は再生できない）: 記録 #0 と不一致: 期待 classifier {'document': '# stage: collect\n## memory_in\n## reads\n## writes\n### inp … 実際:  実際 user {'question': '題目は?', 'schema': None}
+R4 happy: 記録 {'user': 3, 'classifier': 7, 'llm': 1}  ユーザー回答の記録数 = 3
+   余りの記録がある再生: status completed （未消費の記録は検出されない）
+   記録が欠けた再生: ReplayMismatch: 記録の終わりを越えた要求: classifier {'document': '# stage: check_section\n## memory_in\n- c

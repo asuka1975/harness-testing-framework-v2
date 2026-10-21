@@ -1,0 +1,14 @@
+
+Name                            Stmts   Miss Branch BrPart  Cover
+-----------------------------------------------------------------
+src/htf/runtime/__init__.py         8      0      0      0   100%
+src/htf/runtime/checkpoint.py      92      1     36      1    98%
+src/htf/runtime/context.py         42      3      8      2    90%
+src/htf/runtime/loader.py          21      0      2      0   100%
+src/htf/runtime/model.py          137      3     22      3    96%
+src/htf/runtime/oracle.py         102     12     40      6    87%
+src/htf/runtime/recorder.py        69      2     10      2    95%
+src/htf/runtime/runner.py         303     16     84     14    92%
+-----------------------------------------------------------------
+TOTAL                             774     37    202     28    93%
+Required test coverage of 90% reached. Total coverage: 93.14%

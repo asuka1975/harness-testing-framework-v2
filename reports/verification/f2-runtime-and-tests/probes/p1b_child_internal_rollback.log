@@ -1,0 +1,8 @@
+--- 子 check_section=[inconsistent, goal]
+  status     : completed
+  transitions: ['next', 'next', 'next', 'subworkflow_aggregate', 'next']
+  gates      : ['prepare:passed', 'verify:passed']
+  edge_counts: {}
+  resolutions: []
+  child_outcomes: {'elaborate': [[(0, 'goal'), (1, 'goal')]]}
+  子 run 0 の section.md に carry の痕跡（修正: …）がある: True

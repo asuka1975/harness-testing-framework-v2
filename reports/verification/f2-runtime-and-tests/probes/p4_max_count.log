@@ -1,0 +1,27 @@
+--- max=1: verify が常に checks_failed
+  status     : aborted
+  transitions: ['next', 'next', 'rollback_across_phase', 'next', 'escalate_max_exceeded']
+  gates      : ['prepare:passed', 'prepare:invalidated', 'prepare:passed']
+  edge_counts: {('verify', 'checks_failed'): 2}
+  resolutions: ['Abort']
+  escalate 前のロールバック回数 = 1（max=1 と一致: True）, 計数 = 2
+--- max=3: verify が常に checks_failed
+  status     : aborted
+  transitions: ['next', 'next', 'rollback_across_phase', 'next', 'rollback_across_phase', 'next', 'rollback_across_phase', 'next', 'escalate_max_exceeded']
+  gates      : ['prepare:passed', 'prepare:invalidated', 'prepare:passed', 'prepare:invalidated', 'prepare:passed', 'prepare:invalidated', 'prepare:passed']
+  edge_counts: {('verify', 'checks_failed'): 4}
+  resolutions: ['Abort']
+  escalate 前のロールバック回数 = 3（max=3 と一致: True）, 計数 = 4
+--- max=1: 超過 → 人間 Rerun → verify 3 回目は goal
+  status     : completed
+  transitions: ['next', 'next', 'rollback_across_phase', 'next', 'escalate_max_exceeded', 'next', 'subworkflow_aggregate', 'next']
+  gates      : ['prepare:passed', 'prepare:invalidated', 'prepare:passed', 'verify:passed']
+  edge_counts: {('verify', 'checks_failed'): 2}
+  resolutions: ['Rerun']
+--- max=1: 超過 → 人間 RollbackTo(draft) → 完走
+  status     : completed
+  transitions: ['next', 'next', 'rollback_across_phase', 'next', 'escalate_max_exceeded', 'rollback_across_phase', 'next', 'next', 'subworkflow_aggregate', 'next']
+  gates      : ['prepare:passed', 'prepare:invalidated', 'prepare:passed', 'prepare:invalidated', 'prepare:passed', 'verify:passed']
+  edge_counts: {('verify', 'checks_failed'): 2}
+  resolutions: ['RollbackTo']
+  人間の rollback の note: ['', 'human']

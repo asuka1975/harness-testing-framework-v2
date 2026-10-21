@@ -1,0 +1,20 @@
+--- ゲート不成立 → ContinueAsGoal ×2 → Abort
+  status     : aborted
+  transitions: ['escalate_unknown', 'escalate_unknown', 'escalate_unknown']
+  gates      : ['first:failed', 'first:failed', 'first:failed']
+  edge_counts: {}
+  resolutions: ['ContinueAsGoal', 'ContinueAsGoal', 'Abort']
+  escalations: [('unknown', 'quantitative'), ('unknown', 'quantitative'), ('unknown', 'quantitative')]
+--- ゲート不成立 → Rerun（本体が 2 回目は gate_ok=true を書く）
+  status     : completed
+  transitions: ['escalate_unknown', 'next', 'next']
+  gates      : ['first:failed', 'first:passed', 'second:passed']
+  edge_counts: {}
+  resolutions: ['Rerun']
+--- 最上位 Runner に human=None で verify が unknown
+  status     : escalated
+  transitions: ['next', 'next', 'escalate_unknown']
+  gates      : ['prepare:passed']
+  edge_counts: {}
+  resolutions: []
+  child_outcome: ChildOutcome(index=-1, kind='unknown', stage='verify', state='unknown')  escalations: 1

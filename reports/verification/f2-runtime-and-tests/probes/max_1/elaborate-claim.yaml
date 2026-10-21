@@ -1,0 +1,62 @@
+# toy-minimal の子ワークフロー。主張一つにつき一回起動される（親: workflow.yaml の elaborate）
+# 親から memory の鍵 claim を受け取る。作業ディレクトリは親の sections/<i>/。
+workflow:
+  name: elaborate-claim
+  description: 主張一つを節にして、主張との整合を検査する
+  version: "0.2"
+  inputs: [claim]
+  phases:
+    - id: elaborate
+      name: Elaborate
+      description: 節を書いて検査する
+      goal:
+        qualitative: 節が主張と整合している
+        quantitative:
+          section_consistent:
+            description: section-check.json が矛盾なしを記録している
+            equals: true
+      stages:
+        - id: write_section
+          name: Write section
+          description: claim から section.md を書く
+          artifacts:
+            writes: [section.md]
+            memory_in: [claim, inconsistencies]
+          goal:
+            qualitative: >-
+              section.md が claim を展開し、claim に無い主張を含まない。
+            quantitative:
+              section_exists:
+                description: section.md が存在する
+                equals: true
+          end_state:
+            - id: unknown
+              description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
+          rollback: []
+        - id: check_section
+          name: Check section
+          description: section.md と claim の整合を検査し、section-check.json に書く
+          artifacts:
+            reads: [section.md]
+            writes: [section-check.json]
+            memory_in: [claim]
+            memory_out: [inconsistencies]
+          goal:
+            qualitative: >-
+              section.md の全ての文が claim と整合し、section-check.json が矛盾なしを記録している。
+            quantitative:
+              section_consistent:
+                description: section-check.json が矛盾なしを記録している
+                equals: true
+          end_state:
+            - id: inconsistent
+              description: >-
+                section.md の一つ以上の文が claim と矛盾するか、claim から導けない。
+                該当する文の一覧が section-check.json にある。
+            - id: unknown
+              description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
+          rollback:
+            - state: inconsistent
+              stage: write_section
+              carry: [inconsistencies]
+              max: 1

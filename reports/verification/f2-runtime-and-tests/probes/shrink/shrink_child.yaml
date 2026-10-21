@@ -1,0 +1,31 @@
+workflow:
+  name: shrink_child
+  description: 子
+  inputs: [item]
+  phases:
+    - id: c
+      name: C
+      description: w と check
+      goal: { qualitative: 完了, quantitative: {} }
+      stages:
+        - id: w
+          name: W
+          description: w.txt を書く
+          artifacts: { writes: [w.txt], memory_in: [item, fix] }
+          goal:
+            qualitative: w.txt がある
+            quantitative:
+              w_exists: { description: w.txt がある, equals: true }
+          end_state:
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback: []
+        - id: check
+          name: Check
+          description: c.json を書く
+          artifacts: { reads: [w.txt], writes: [c.json], memory_in: [item], memory_out: [fix] }
+          goal: { qualitative: c.json が ok, quantitative: {} }
+          end_state:
+            - { id: bad, description: c.json が bad を記録している }
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback:
+            - { state: bad, stage: w, carry: [fix], max: 1 }

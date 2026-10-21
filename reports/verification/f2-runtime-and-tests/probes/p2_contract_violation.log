@@ -1,0 +1,10 @@
+  ok                     strict=True: 例外なし status=completed transitions=['next', 'next']
+  write_outside          strict=True: ContractViolation: ステージ 'probe' が writes 外に書いた: ['stray.txt']
+  emit_undeclared        strict=True: ContractViolation: ステージ 'probe' の memory_out に無い鍵 'not_declared' への emit
+  use_user               strict=True: ContractViolation: ステージ 'probe' は user_input を宣言していないのでユーザー入出力を使えない
+  modify_reads           strict=True: ContractViolation: ステージ 'probe' が writes 外に書いた: ['a.txt']
+  delete_outside         strict=True: ContractViolation: ステージ 'probe' が writes 外に書いた: ['a.txt']
+  write_meta             strict=True: 例外なし status=completed transitions=['next', 'next']
+    ctx.memory keys: ['k'] (memory_in は [k] のみ)
+  read_memory_outside    strict=True: 例外なし status=completed transitions=['next', 'next']
+  write_outside          strict=False: 例外なし status=completed transitions=['next', 'next']

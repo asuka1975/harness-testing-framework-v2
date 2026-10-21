@@ -1,0 +1,42 @@
+# 再進入で子 run の数が減る（検証役の報告 B2）。seed → fan（子 run）→ fan_bad なら seed へ
+workflow:
+  name: shrink
+  description: 再進入で each のリストが短くなる
+  phases:
+    - id: p
+      name: P
+      description: フェーズ
+      goal: { qualitative: 完了, quantitative: {} }
+      stages:
+        - id: seed
+          name: Seed
+          description: items を出す
+          artifacts: { writes: [seed.json], memory_in: [back], memory_out: [items] }
+          goal:
+            qualitative: seed.json がある
+            quantitative:
+              seed_exists: { description: seed.json がある, equals: true }
+          end_state:
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback: []
+        - id: fan
+          name: Fan
+          description: items ごとに子を起動する
+          artifacts: { writes: [runs/], memory_in: [items], memory_out: [back] }
+          subworkflow:
+            ref: shrink_child.yaml
+            each: items
+            item_as: item
+            workspace: runs/
+            aggregate:
+              - state: fan_bad
+                when: { any: { stage: check, state: bad } }
+          goal:
+            qualitative: 全ての子 run が goal
+            quantitative:
+              run_dirs: { description: runs/ 配下のディレクトリ数, min: 1 }
+          end_state:
+            - { id: fan_bad, description: 一つ以上の子 run が bad のまま終わった }
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback:
+            - { state: fan_bad, stage: seed, carry: [back], max: 2 }

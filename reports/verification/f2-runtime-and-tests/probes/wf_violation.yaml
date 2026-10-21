@@ -1,0 +1,32 @@
+# P2 用: 契約違反を Runner 経由で起こす最小定義
+workflow:
+  name: probe_violation
+  description: 契約違反の探針
+  phases:
+    - id: p
+      name: P
+      description: 二つのステージ
+      goal: { qualitative: 完了, quantitative: {} }
+      stages:
+        - id: seed
+          name: Seed
+          description: a.txt を書く
+          artifacts: { writes: [a.txt], memory_out: [k] }
+          goal:
+            qualitative: a.txt がある
+            quantitative:
+              a_exists: { description: a.txt がある, equals: true }
+          end_state:
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback: []
+        - id: probe
+          name: Probe
+          description: a.txt を読んで b.txt と out/ を書く
+          artifacts: { reads: [a.txt], writes: [b.txt, out/], memory_in: [k] }
+          goal:
+            qualitative: b.txt がある
+            quantitative:
+              b_exists: { description: b.txt がある, equals: true }
+          end_state:
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback: []

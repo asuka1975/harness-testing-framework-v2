@@ -1,0 +1,14 @@
+--- checks_failed_once（draft に探針）
+  status     : completed
+  transitions: ['next', 'next', 'rollback_across_phase', 'next', 'next', 'subworkflow_aggregate', 'next']
+  gates      : ['prepare:passed', 'prepare:invalidated', 'prepare:passed', 'verify:passed']
+  edge_counts: {('verify', 'checks_failed'): 1}
+  resolutions: []
+  draft 進入 1 回目に見える成果物: ['grounds/0.txt', 'grounds/1.txt', 'inputs.json']  (.htf 配下のファイル数: 9)
+  draft 進入 2 回目に見える成果物: ['grounds/0.txt', 'grounds/1.txt', 'inputs.json', 'report.json']  (.htf 配下のファイル数: 25)
+  draft の開始時スナップショット 2 つの files digest 一致: True
+  memory の差分（2 回目 − 1 回目）: {'failing_checks': ['主張A']}
+  1 回目の memory: {}
+  draft 開始時 files の中身: [] (draft.md は開始時には無い)
+  store レイアウト: ['files', 'memory.json', 'meta.json']  meta.json の鍵: ['moment', 'ordinal', 'stage_id', 'taken_at', 'version', 'workflow', 'writes']
+  store の ordinal 数: 15  start+end の数: 12 (差はフェーズゲート用の仮スナップショット)

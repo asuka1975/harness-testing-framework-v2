@@ -1,0 +1,10 @@
+--- items [a, b] → fan_bad → seed → items [a] → fan
+  status     : completed
+  transitions: ['next', 'subworkflow_aggregate', 'rollback_within_phase', 'next', 'subworkflow_aggregate', 'next']
+  gates      : ['p:passed']
+  edge_counts: {('fan', 'fan_bad'): 1}
+  resolutions: []
+  fan の本体が各進入で見た runs/ 配下: [['0', '1'], ['0', '1']]
+  child_outcomes: {'fan': [[(0, 'stuck', 'check', 'bad'), (1, 'goal', None, None)], [(0, 'goal', None, None)]]}
+  fan の終了時スナップショットの runs/ 配下: [['0', '1'], ['0', '1']]
+  2 回目の items: ['a']  run_dirs 指標の値: 2

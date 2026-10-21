@@ -1,0 +1,42 @@
+# P7 用: 再進入で each のリストが短くなる親。前回の子の作業ディレクトリが残るか
+workflow:
+  name: shrink_parent
+  description: 子の数が再進入で減る親
+  phases:
+    - id: p
+      name: P
+      description: seed と fan
+      goal: { qualitative: 完了, quantitative: {} }
+      stages:
+        - id: seed
+          name: Seed
+          description: items を出す
+          artifacts: { writes: [seed.json], memory_in: [why], memory_out: [items] }
+          goal:
+            qualitative: seed.json がある
+            quantitative:
+              seed_exists: { description: seed.json がある, equals: true }
+          end_state:
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback: []
+        - id: fan
+          name: Fan
+          description: items ごとに子を起動する
+          artifacts: { writes: [runs/], memory_in: [items], memory_out: [why] }
+          subworkflow:
+            ref: shrink_child.yaml
+            each: items
+            item_as: item
+            workspace: runs/
+            aggregate:
+              - state: fan_bad
+                when: { any: { stage: check, state: bad } }
+          goal:
+            qualitative: 全ての子が goal
+            quantitative:
+              run_dirs: { description: runs/ 配下のディレクトリ数, min: 1 }
+          end_state:
+            - { id: fan_bad, description: 一つ以上の子の c.json が bad }
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback:
+            - { state: fan_bad, stage: seed, carry: [why], max: 2 }

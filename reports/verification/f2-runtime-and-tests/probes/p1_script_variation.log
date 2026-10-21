@@ -1,0 +1,46 @@
+--- A happy（基準）
+  status     : completed
+  transitions: ['next', 'next', 'next', 'subworkflow_aggregate', 'next']
+  gates      : ['prepare:passed', 'verify:passed']
+  edge_counts: {}
+  resolutions: []
+--- B1 verify=[checks_failed, goal] → draft へ境界越え 1 回
+  status     : completed
+  transitions: ['next', 'next', 'rollback_across_phase', 'next', 'next', 'subworkflow_aggregate', 'next']
+  gates      : ['prepare:passed', 'prepare:invalidated', 'prepare:passed', 'verify:passed']
+  edge_counts: {('verify', 'checks_failed'): 1}
+  resolutions: []
+  draft 2 回目の開始時 memory: {'failing_checks': ['主張A']}
+--- B2 verify=[checks_failed]（台本は最後を繰り返す）→ max 2 超過で escalate
+  status     : aborted
+  transitions: ['next', 'next', 'rollback_across_phase', 'next', 'rollback_across_phase', 'next', 'escalate_max_exceeded']
+  gates      : ['prepare:passed', 'prepare:invalidated', 'prepare:passed', 'prepare:invalidated', 'prepare:passed']
+  edge_counts: {('verify', 'checks_failed'): 3}
+  resolutions: ['Abort']
+--- C draft=[unknown] → escalate_unknown
+  status     : aborted
+  transitions: ['next', 'escalate_unknown']
+  gates      : []
+  edge_counts: {}
+  resolutions: ['Abort']
+--- D verify=[inputs_missing, goal] → collect へ境界越え（carry: missing_inputs, max 1）
+  status     : completed
+  transitions: ['next', 'next', 'rollback_across_phase', 'next', 'next', 'next', 'subworkflow_aggregate', 'next']
+  gates      : ['prepare:passed', 'prepare:invalidated', 'prepare:passed', 'verify:passed']
+  edge_counts: {('verify', 'inputs_missing'): 1}
+  resolutions: []
+  collect 2 回目の開始時 memory: {'missing_inputs': ['主張A の外部データ']}
+--- E verify=[inputs_missing×2] → max 1 超過で escalate
+  status     : aborted
+  transitions: ['next', 'next', 'rollback_across_phase', 'next', 'next', 'escalate_max_exceeded']
+  gates      : ['prepare:passed', 'prepare:invalidated', 'prepare:passed']
+  edge_counts: {('verify', 'inputs_missing'): 2}
+  resolutions: ['Abort']
+  escalation.edge: ('inputs_missing', 'collect') cause: max_exceeded
+--- F 子 check_section=[inconsistent] 1 回 → 子内でロールバックして goal（親からは見えない）
+  status     : completed
+  transitions: ['next', 'next', 'next', 'subworkflow_aggregate', 'rollback_within_phase', 'next', 'subworkflow_aggregate', 'next']
+  gates      : ['prepare:passed', 'verify:passed']
+  edge_counts: {('elaborate', 'sections_inconsistent'): 1}
+  resolutions: []
+  child_outcomes: {'elaborate': [['stuck', 'goal'], ['goal', 'goal']]}
