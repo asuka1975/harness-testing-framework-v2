@@ -1,9 +1,11 @@
-# split 構成の N と種（独立性検証とマルコフ合成の負例に使う。区間は markov と同じ観点で粗く）
+# split 構成の N と種（独立性検証とマルコフ合成の負例に使う）。区間は仮置き（ADR-013）
 name: split
 origin: { kind: workflow_start }
 runs: 300
 seed: 200
 stages:
   check_section:
-    first: { inconsistent: { min: 0.25, max: 0.55 } }
-outcomes: {}
+    first: { inconsistent: { min: 0.55, max: 0.85 } }   # 奇数番目の主張は常に inconsistent なので pooled では 0.7 前後
+    reentry: { inconsistent: { min: 0.55, max: 0.85 } } # 再進入するのは主に奇数番目（常に inconsistent）
+outcomes:
+  aborted: { min: 0.6 }                                 # 奇数番目の主張が必ず stuck になり、max 1 を超えて escalate する

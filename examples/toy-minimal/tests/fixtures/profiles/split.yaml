@@ -1,5 +1,8 @@
 # markov.yaml と同じ分布だが、check_section の inconsistent クラスの中で代表（主張）ごとに下流が分かれる。
-# 奇数番目の主張は、再進入後の check_section が必ず inconsistent（stuck）になる → 独立性検証とマルコフ合成の検出対象
+# 奇数番目の主張は check_section が最初から必ず inconsistent で、再進入後も必ず inconsistent（stuck）。
+# 偶数番目の主張は最初は分布どおりだが、再進入後は必ず goal。
+# → 独立性検証（inconsistent クラスの代表ごとに再進入の分布が違う）と、
+#   マルコフ合成（主張ごとの持続する振る舞いを pooled の行列では表せず、run 全体の結果の予測が外れる）の検出対象
 name: split
 title: 題目
 claims: [主張A, 主張B]
@@ -15,4 +18,5 @@ distributions:
 split:
   stage: check_section
   state: inconsistent
-  odd_claims_reentry: { inconsistent: 1.0 }   # 奇数番目の主張の再進入は必ず inconsistent
+  odd_claims: { first: { inconsistent: 1.0 }, reentry: { inconsistent: 1.0 } }
+  even_claims: { reentry: { goal: 1.0 } }

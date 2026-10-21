@@ -71,7 +71,9 @@ def _samples(toy: ModuleType, root: Path, name: str):
 def test_markov_prediction_matches_observation(toy: ModuleType, tmp_path: Path) -> None:
     workflow = load_workflow(toy.harness.WORKFLOW_PATH, metric_names=toy.harness.registry().names())
     samples = _samples(toy, tmp_path, "markov")
-    predicted = synthesize_outcomes(workflow, transition_matrix(samples), runs=4000, seed=5)
+    predicted = synthesize_outcomes(
+        workflow, transition_matrix(samples), runs=4000, seed=5, samples=samples
+    )
     comparison = compare_outcomes(predicted, tally(samples).outcomes, tolerance=0.1)
     assert comparison.ok, comparison
 
@@ -79,6 +81,56 @@ def test_markov_prediction_matches_observation(toy: ModuleType, tmp_path: Path) 
 def test_markov_prediction_deviates_for_split_body(toy: ModuleType, tmp_path: Path) -> None:
     workflow = load_workflow(toy.harness.WORKFLOW_PATH, metric_names=toy.harness.registry().names())
     samples = _samples(toy, tmp_path, "split")
-    predicted = synthesize_outcomes(workflow, transition_matrix(samples), runs=4000, seed=5)
+    predicted = synthesize_outcomes(
+        workflow, transition_matrix(samples), runs=4000, seed=5, samples=samples
+    )
     comparison = compare_outcomes(predicted, tally(samples).outcomes, tolerance=0.1)
     assert not comparison.ok, comparison
+
+
+def test_synthesize_requires_child_counts_for_subworkflows(toy: ModuleType, tmp_path: Path) -> None:
+    """子を持つワークフローで子 run 数を渡さないと黙って 1 にしない（検証役の報告 B1）。"""
+    workflow = load_workflow(toy.harness.WORKFLOW_PATH, metric_names=toy.harness.registry().names())
+    with pytest.raises(ValueError, match="子 run"):
+        synthesize_outcomes(workflow, {}, runs=10, seed=1)
+
+
+def test_inject_keys_are_workflow_qualified_and_validated(toy: ModuleType, tmp_path: Path) -> None:
+    """注入の鍵は (workflow, stage, entry)。定義に無い鍵は ValueError（検証役の報告 B3 / B4）。"""
+    from htf.contract import Verdict, VerdictKind
+    from htf.runtime import Runner
+    from htf.testing.harness import ScriptedHuman
+
+    scenario = toy.harness.load_scenario(TOY / "tests" / "fixtures" / "scenarios" / "happy.yaml")
+    workflow = load_workflow(toy.harness.WORKFLOW_PATH, metric_names=toy.harness.registry().names())
+    bindings = toy.harness.make_bindings(scenario, human=ScriptedHuman([]))
+    with pytest.raises(ValueError, match="注入"):
+        Runner(
+            workflow,
+            bindings,
+            workspace=tmp_path / "ws",
+            inject={("toy-minimal", "no_such_stage", 1): Verdict(VerdictKind.GOAL)},
+        )
+    with pytest.raises(ValueError, match="注入"):
+        Runner(
+            workflow,
+            bindings,
+            workspace=tmp_path / "ws",
+            inject={("no_such_workflow", "verify", 1): Verdict(VerdictKind.GOAL)},
+        )
+    # 子のステージは子の workflow 名で指定する
+    runner = Runner(
+        workflow,
+        bindings,
+        workspace=tmp_path / "ws2",
+        inject={("elaborate-claim", "check_section", 1): Verdict(VerdictKind.UNKNOWN)},
+    )
+    result = runner.run()
+    child_records = [
+        e
+        for runs in result.child_results["elaborate"]
+        for child in runs
+        for e in child.evaluations
+        if e.stage_id == "check_section"
+    ]
+    assert child_records and all(e.injected for e in child_records)

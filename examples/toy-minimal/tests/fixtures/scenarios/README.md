@@ -7,3 +7,10 @@
 - `human`: escalate のたびに返す解決。`abort` | `rerun` | `continue_as_goal` | `rollback_to:<stage>`
 - `expect`: `status`、`transitions`（遷移種の列）、任意で `gates`（`phase:event` の列）
 - verify の結果に使える値: `goal` | `goal_assumed`（一部の主張を仮定として理由つきで記録。印は goal）| `checks_failed` | `inputs_missing` | `unknown` | `low_confidence`（印が閾値未満 → unknown）
+
+## 確率的な構成（profiles/*.yaml）
+
+- `distributions`: ステージ → `first` | `reentry` → クラス → 確率。再進入は供給元が (stage, claim) ごとに数える（runtime の進入回数と同じ規則）
+- `split`: `stage` の分布を主張の偶奇で差し替える（`odd_claims` / `even_claims` に `first` / `reentry` の分布）。クラス内で代表ごとに下流が分かれる構成を作るためのもの
+- `human`: escalate のたびに返す解決（最後を繰り返す）
+- 親側のクラス（verify の checks_failed など）の代表: 失敗した主張は供給元の `pick` で選ぶ（決定論的な台本では先頭、確率的構成では種つきで一様）

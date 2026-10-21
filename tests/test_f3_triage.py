@@ -44,3 +44,21 @@ def test_one_unknown_flows_through_triage(toy: ModuleType, tmp_path: Path) -> No
     exported = queue.export_corpus(corpus_path)
     assert len(exported) == 1
     assert load_corpus(corpus_path)[0].label == "checks_failed"
+
+
+def test_injected_unknown_is_excluded_by_default(toy: ModuleType, tmp_path: Path) -> None:
+    """注入で作った unknown はコーパス候補に混ぜない（検証役の報告 B6）。"""
+    from htf.contract import Abort, Verdict, VerdictKind
+
+    scenario = toy.harness.load_scenario(SCENARIOS / "happy.yaml")
+    workflow = load_workflow(toy.harness.WORKFLOW_PATH, metric_names=toy.harness.registry().names())
+    result = Runner(
+        workflow,
+        toy.harness.make_bindings(scenario, human=ScriptedHuman([Abort()])),
+        workspace=tmp_path / "ws",
+        inject={("toy-minimal", "draft", 1): Verdict(VerdictKind.UNKNOWN)},
+    ).run()
+    queue = TriageQueue(tmp_path / "triage.jsonl")
+    assert queue.enqueue(result, workflow=workflow.name, run_id="run-2") == []
+    added = queue.enqueue(result, workflow=workflow.name, run_id="run-2", include_injected=True)
+    assert len(added) == 1 and added[0].injected

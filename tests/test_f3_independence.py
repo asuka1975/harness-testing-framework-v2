@@ -11,7 +11,13 @@ from types import ModuleType
 
 import pytest
 
-from htf.testing.stages import independence, load_expectations, run_many
+from htf.testing.stages import (
+    check_expectations,
+    independence,
+    load_expectations,
+    run_many,
+    tally,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 TOY = ROOT / "examples" / "toy-minimal"
@@ -38,8 +44,10 @@ def test_split_class_is_detected(toy: ModuleType, tmp_path: Path) -> None:
     report = independence(
         samples, stage_id="check_section", cls="inconsistent", permutations=300, seed=1
     )
-    assert len(report.groups) >= 2
+    assert report.verifiable and len(report.groups) >= 2
     assert report.p_value < 0.01, report
+    # split 構成の expectations（区間は仮置き）も通る
+    assert check_expectations(tally(samples), load_expectations(EXPECTATIONS / "split.yaml")).ok
 
 
 def test_unsplit_class_is_not_flagged(toy: ModuleType, tmp_path: Path) -> None:
@@ -47,5 +55,15 @@ def test_unsplit_class_is_not_flagged(toy: ModuleType, tmp_path: Path) -> None:
     report = independence(
         samples, stage_id="check_section", cls="inconsistent", permutations=300, seed=1
     )
-    assert len(report.groups) >= 2
+    assert report.verifiable and len(report.groups) >= 2
     assert report.p_value >= 0.05, report
+
+
+def test_unverifiable_class_is_reported_as_such(toy: ModuleType, tmp_path: Path) -> None:
+    """群が一つしか無いクラスは「検証不能」であって「未検出」ではない（検証役の報告 B5）。"""
+    samples = _samples(toy, tmp_path, "markov")
+    report = independence(
+        samples, stage_id="collect", cls="goal", permutations=50, seed=1
+    )  # goal は carry を運ばないので群は "-" の一つ
+    assert not report.verifiable
+    assert not report.flagged
