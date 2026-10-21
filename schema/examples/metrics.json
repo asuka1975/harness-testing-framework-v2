@@ -1,0 +1,9 @@
+{
+    "metrics": [
+        "inputs_complete",
+        "draft_exists",
+        "verified_ratio",
+        "section_exists",
+        "section_consistent"
+    ]
+}

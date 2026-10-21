@@ -4,20 +4,19 @@
 
 ## 次にやること
 
-現在は F1 の初期化タスク完了直後で、人間の決定待ち。決定は docs/decisions.md の各 ADR の「決定」節に書く（直接編集でよい）。
+2026-10-22 に ADR-001〜005、007〜010 が決定した（ADR-009 は (b) を v1.0 に含める）。ツールチェーンの骨格は作成済み。F1 本体を次のタスク列で進める（第5.1節）。各タスクの完了条件はコマンドで確かめ、結果を本ファイルに残す。
 
-1. **人間の決定を待つ**: ADR-001〜005、007〜010（ADR-006 は F5 で決める）。決定があるまで下記 2 以降には着手しない
-2. **ADR-010 が決まったら**（ツールチェーンの骨格と CI の雛形）
-   - pyproject.toml（uv）、uv.lock、ruff 設定、.gitignore、`tests/` の配置（パッケージ配置の小決定 P1 / P2 / P3 に従う）
-   - GitHub Actions の雛形（整合性検査と決定論テストを常時実行する一段だけ。段階分けは F5）
-   - 初期化の完了条件スクリプト（scratchpad の `check_init.py`、内容は本日の検証の節に要旨）を `tests/` に移植して CI で回す
-3. **ADR-001 / 002 / 005 / 007 が決まったら**（F1 本体）
-   - 完了条件を先に書く: 検査器の各性質（参照整合、unknown を除く end_state と rollback の全単射、戻り先の前方性、max の存在と有界性、carry の生成と消費、指標の存在、unknown の存在）ごとに負例を schema/examples/ に置き、「正例が通り負例が落ちる」テストを書く
-   - 拡張スキーマ（carry / max / artifacts / 指標の形 / additionalProperties）、整合性検査器、ハーネス契約の文書、toy-minimal の workflow.yaml（3〜4ステージ。ロールバック、carry、フェーズ境界越え、ユーザー待ち）
-   - toy-minimal の workflow.yaml は人間に出す前に、実装を見ていない検証役に MECE 事前レビューをさせる（第5.9節）
-4. **人間に確認したい保留事項**（決定ではなく計画書の運用上の確認。下記「フレームワーク本体の不足」参照）
-   - `reports/` を木に加えてよいか
-   - `examples/software-factory/` の骨格を初期化で作らなかった判断でよいか
+1. **完了条件（テスト）を先に書く**: `tests/test_schema_examples.py`（正例が通り負例が落ちる）、`tests/test_checker.py`（検査コードごとに負例があり、各負例がそのコードを報告する。コードカタログと負例集合の一致）、`tests/test_toy_minimal.py`（toy-minimal が検査を通り、要求された遷移の形を静的に含む）。完了条件: `uv run pytest --collect-only` が収集でき、実装前は失敗する
+2. **拡張スキーマ** `schema/workflow.schema.json` と `schema/examples/{positive,negative,children}/`、`schema/examples/metrics.json`。完了条件: `uv run pytest tests/test_schema_examples.py tests/test_repo_layout.py`
+3. **整合性検査器** `src/htf/testing/spec/`（`check_workflow`、`CODES`、CLI `python -m htf.testing.spec`）。完了条件: `uv run pytest tests/test_checker.py`
+4. **ハーネス契約** `src/htf/contract/`（Protocol と `CONTRACT.md`: 三操作、スナップショット形式、ステージ本体・指標・ユーザー入出力・LLM クライアント、6 種の遷移の列挙）。完了条件: `uv run ruff check . && uv run pytest`
+5. **toy-minimal** `examples/toy-minimal/workflow.yaml`、子 `elaborate-claim.yaml`、`metrics/manifest.json`。完了条件: `uv run python -m htf.testing.spec examples/toy-minimal/workflow.yaml --metrics examples/toy-minimal/metrics/manifest.json` が 0 で終わる
+6. **検証役**（実装を見ていない general-purpose サブエージェント。第5.10節の宣言を本ファイルに書いてから起動）: 完了条件の判定、toy-minimal の MECE 事前レビュー。書き先 `reports/verification/f1-contract-and-spec/`
+7. **人間ゲート**: スキーマと契約の承認、toy-minimal のレビュー、F1 で新たに確定した小決定の一覧（decisions.md の該当 ADR に「F1 で確定、ゲートで承認」の印）。F2 には入らない
+
+`reports/` の構造（本日決定）: `reports/verification/<task-id>/report.md`（検証役の報告）、`reports/dynamic/<id>/`（動的ワークフロー、第5.10節）、`reports/triage/`（F3 以降）。
+
+人間に確認したい保留事項（決定ではなく運用上の確認）: `reports/` を第4節の木に加えてよいか。`examples/software-factory/` の骨格を初期化で作らなかった判断でよいか。
 
 ## 2026-10-22
 
@@ -200,3 +199,15 @@ print()
 print(f"{len(failures)} failure(s)")
 sys.exit(1 if failures else 0)
 ```
+
+### 動的ワークフローの宣言（第5.10節）: `f1-contract-and-spec`
+
+- **目的**: F1 の完了条件の第三者判定（実装した本セッションに判定を任せない。第5.9節）と、toy-minimal の workflow.yaml / elaborate-claim.yaml の MECE 事前レビュー（人間に出す前の必須工程）
+- **役割と人数**: 検証役 1（general-purpose サブエージェント。本セッションの文脈を継がない新規起動。fork は使わない）
+- **入力**: docs/plan.md（第6節 F1、付録 A / B）、docs/decisions.md、schema/、src/htf/contract/（CONTRACT.md、types.py、interfaces.py）、examples/toy-minimal/、tests/、検査器 CLI（`uv run python -m htf.testing.spec`）と `uv run pytest` の出力。判定は実行した結果を根拠にする（コードを読んで「正しそう」で判定しない）
+- **書いてよいパス**: `reports/verification/f1-contract-and-spec/` のみ。保護ファイルと本体コードは書かない
+- **完了条件**: `reports/verification/f1-contract-and-spec/report.md` に (1) F1 完了条件の各項目（スキーマのメタスキーマ適合、正例が通り負例が落ちる、検査器の各性質に負例がある、toy-minimal が検査を通る、契約が文書化されている）の判定（満たす / 満たさない / 判定不能）と根拠（実行したコマンドと出力の要旨）、(2) toy-minimal と子の各ステージの end_state について、記述が成果物から観測可能か、互いに排他か、各 end_state に戻り先があるか、優先順が記述にあるかのレビュー、(3) 発見した問題（ワークフロー定義の問題と本体の不足を分ける）、(4) 検証役が判定できなかった事項
+- **予算**: トークン 20 万、時間 20 分、フレームワーク外の LLM 呼び出し 0
+- **反復の上限**: 1（再実行しない。不足は計画エージェントが判断する）
+- **入れ子の深さ**: 0（検証役はサブエージェントを起動しない）
+- **受け入れ**: 報告は第5.3節 4 の検証（本セッションでの `uv run pytest` と CLI の再実行）を通してから受け入れる。報告の中だけで成立する判断は残さない

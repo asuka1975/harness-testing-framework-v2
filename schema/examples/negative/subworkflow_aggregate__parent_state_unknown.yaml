@@ -1,0 +1,91 @@
+# 正例: 土台に子ワークフローを呼ぶステージを足したもの
+workflow:
+  name: minimal
+  description: 検査器の正例の土台
+  phases:
+    - id: prepare
+      name: Prepare
+      description: 入力を集めて下書きを書く
+      goal:
+        qualitative: 下書きが入力に基づいて書かれている
+        quantitative:
+          draft_exists: { description: draft.md がある, equals: true }
+      stages:
+        - id: collect
+          name: Collect
+          description: 入力を集めて inputs.json に書く
+          user_input: true
+          artifacts: { writes: [inputs.json], memory_in: [missing_inputs] }
+          goal:
+            qualitative: 必要な入力が inputs.json に揃っている
+            quantitative:
+              inputs_complete: { description: 必須項目が全て埋まっている, equals: true }
+          end_state:
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback: []
+        - id: draft
+          name: Draft
+          description: inputs.json から draft.md を書く
+          artifacts: { reads: [inputs.json], writes: [draft.md], memory_in: [failing_checks] }
+          goal:
+            qualitative: draft.md が入力の全項目に触れている
+            quantitative:
+              draft_exists: { description: draft.md がある, equals: true }
+          end_state:
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback: []
+    - id: verify
+      name: Verify
+      description: 下書きを検証する
+      goal:
+        qualitative: 下書きの主張が検証されている
+        quantitative:
+          verified_ratio: { description: 検証済みの割合, min: 0.8 }
+      stages:
+        - id: verify
+          name: Verify
+          description: draft.md の主張を検証し report.json に書く
+          artifacts:
+            reads: [draft.md]
+            writes: [report.json]
+            memory_in: [section_findings]
+            memory_out: [failing_checks, missing_inputs, claims]
+          goal:
+            qualitative: 全ての主張が report.json で検証済みとして記録されている
+            quantitative:
+              verified_ratio: { description: 検証済みの割合, min: 0.8 }
+          end_state:
+            - id: checks_failed
+              description: 一つ以上の主張が検証に失敗している。この状態は inputs_missing に優先する。
+            - id: inputs_missing
+              description: 検証に必要な入力が draft.md にも作業ディレクトリにも無い。
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback:
+            - { state: checks_failed, stage: draft, carry: [failing_checks], max: 2 }
+            - { state: inputs_missing, stage: collect, carry: [missing_inputs], max: 1 }
+        - id: elaborate
+          name: Elaborate
+          description: 検証済みの主張ごとに子ワークフローで節を書く
+          artifacts:
+            reads: [report.json]
+            writes: [sections/]
+            memory_in: [claims]
+            memory_out: [section_findings]
+          subworkflow:
+            ref: ../children/leaf.yaml
+            each: claims
+            item_as: claim
+            workspace: sections/
+            aggregate:
+              - state: unknown
+                when: { any: { stage: check, state: inconsistent } }
+          goal:
+            qualitative: 全ての主張に節があり、互いに矛盾しない
+            quantitative:
+              section_exists: { description: 節のファイルがある, equals: true }
+          end_state:
+            - id: sections_inconsistent
+              description: 一つ以上の節が主張と矛盾する。矛盾の一覧が子の section-check.json にある。
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback:
+            - { state: sections_inconsistent, stage: verify, carry: [section_findings], max: 1 }

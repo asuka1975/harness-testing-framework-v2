@@ -1,0 +1,25 @@
+# 負例用の子: 親を参照し返す（循環）
+workflow:
+  name: cycle_back
+  description: 親を子として参照する
+  inputs: [claim]
+  phases:
+    - id: p
+      name: P
+      description: フェーズ
+      goal: { qualitative: 完了, quantitative: {} }
+      stages:
+        - id: back
+          name: Back
+          description: 親を起動する
+          artifacts: { writes: [out/], memory_in: [claim] }
+          subworkflow:
+            ref: ../negative/subworkflow_ref__cycle.yaml
+            each: claim
+            item_as: claims
+            workspace: out/
+            aggregate: []
+          goal: { qualitative: 完了, quantitative: {} }
+          end_state:
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback: []

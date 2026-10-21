@@ -22,6 +22,10 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/htf"]
 
+# スキーマの正本は schema/（保護ファイル）。配布物には htf/schema/ として同梱する（htf.schema 参照）
+[tool.hatch.build.targets.wheel.force-include]
+"schema/workflow.schema.json" = "htf/schema/workflow.schema.json"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
@@ -34,6 +38,10 @@ branch = true
 line-length = 100
 target-version = "py312"
 src = ["src", "tests"]
+# docs/ と reports/ の Markdown 内コードブロックは記録なので整形しない
+extend-exclude = ["docs", "reports"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "W"]
+# 行長は formatter に任せる。E501 は全角文字を幅 2 で数えるため日本語のコメントと文字列で誤検出する
+ignore = ["E501"]

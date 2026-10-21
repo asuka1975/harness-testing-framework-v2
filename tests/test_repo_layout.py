@@ -108,7 +108,9 @@ def test_decisions_has_ten_adrs_with_fixed_sections() -> None:
     text = (ROOT / "docs" / "decisions.md").read_text(encoding="utf-8")
     sections = re.split(r"^## ADR-", text, flags=re.M)[1:]
     ids = [s.split()[0] for s in sections]
-    assert ids == [f"{i:03d}" for i in range(1, 11)], ids
+    # 第3節の十件が先頭に揃い、以後は連番で増える
+    assert ids == [f"{i:03d}" for i in range(1, len(ids) + 1)], ids
+    assert len(ids) >= 10
     for adr_id, s in zip(ids, sections, strict=True):
         for heading in ("### 推奨", "### 決定"):
             assert re.search(rf"^{heading}", s, re.M), f"ADR-{adr_id}: {heading} が無い"

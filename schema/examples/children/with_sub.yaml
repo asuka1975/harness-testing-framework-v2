@@ -1,0 +1,25 @@
+# 負例用の子: 更に子を持つ（深さ 2 になる）
+workflow:
+  name: with_sub
+  description: 子が更に子を持つ
+  inputs: [items]
+  phases:
+    - id: p
+      name: P
+      description: フェーズ
+      goal: { qualitative: 完了, quantitative: {} }
+      stages:
+        - id: fan
+          name: Fan
+          description: 要素ごとに leaf を起動する
+          artifacts: { writes: [out/], memory_in: [items] }
+          subworkflow:
+            ref: leaf.yaml
+            each: items
+            item_as: claim
+            workspace: out/
+            aggregate: []
+          goal: { qualitative: 完了, quantitative: {} }
+          end_state:
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback: []

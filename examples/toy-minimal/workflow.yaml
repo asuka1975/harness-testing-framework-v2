@@ -1,0 +1,167 @@
+# toy-minimal: 契約と全遷移種別を最小構成で覆う玩具ワークフロー（計画書 F1、付録 B の書き方）
+#
+# 2 フェーズ 4 ステージ + 子ワークフロー 1 つ。
+#   prepare: collect（ユーザー待ち）→ draft
+#   verify:  verify → elaborate（子ワークフロー elaborate-claim.yaml を主張ごとに起動）
+# 遷移の形:
+#   次へ進む（全ステージ）、フェーズ内ロールバック（elaborate → verify）、
+#   フェーズ境界を越えるロールバック（verify → draft、verify → collect）、carry 付きロールバック、
+#   unknown で escalate（全ステージ）、max 超過で escalate（verify → draft は 2 回まで）、
+#   ユーザー待ちの中断と再開（collect）、子ワークフローの集約（elaborate）。
+# 指標の実装は metrics/（F2）。名前だけ metrics/manifest.json にある。
+workflow:
+  name: toy-minimal
+  description: 入力を集めて下書きを書き、検証し、主張ごとに節を書く
+  version: "0.1"
+  phases:
+    - id: prepare
+      name: Prepare
+      description: 入力を集めて下書きを書く
+      goal:
+        qualitative: 入力に基づく下書きが存在する
+        quantitative:
+          draft_exists:
+            description: draft.md が存在する
+            equals: true
+      stages:
+        - id: collect
+          name: Collect
+          description: ユーザーに質問して必要な入力を集め、inputs.json に書く
+          user_input: true
+          artifacts:
+            writes: [inputs.json]
+            memory_in: [missing_inputs]
+          goal:
+            qualitative: >-
+              inputs.json に、下書きに必要な項目（題目、主張の一覧、根拠の所在）が
+              すべて埋まった形で書かれている。
+            quantitative:
+              inputs_complete:
+                description: inputs.json の必須項目がすべて空でない
+                equals: true
+          end_state:
+            - id: unknown
+              description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
+          rollback: []
+        - id: draft
+          name: Draft
+          description: inputs.json から draft.md を書く
+          artifacts:
+            reads: [inputs.json]
+            writes: [draft.md]
+            memory_in: [failing_checks]
+            memory_out: [missing_inputs]
+          goal:
+            qualitative: >-
+              draft.md が inputs.json の全ての主張に一つずつ節を割り当て、
+              各節が根拠の所在を参照している。
+            quantitative:
+              draft_exists:
+                description: draft.md が存在する
+                equals: true
+              claim_count:
+                description: draft.md に含まれる主張の数
+                min: 1
+          end_state:
+            - id: inputs_insufficient
+              description: >-
+                inputs.json の主張の一部に根拠の所在が無く、draft.md のその節が
+                空のまま残っている。足りない項目の一覧が draft.md の末尾にある。
+            - id: unknown
+              description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
+          rollback:
+            - state: inputs_insufficient
+              stage: collect
+              carry: [missing_inputs]
+              max: 1
+    - id: verify
+      name: Verify
+      description: 下書きを検証し、主張ごとに節を書く
+      goal:
+        qualitative: 下書きの主張が検証され、各主張に矛盾の無い節がある
+        quantitative:
+          verified_ratio:
+            description: report.json で検証済みとされた主張の割合
+            min: 0.8
+          sections_count:
+            description: sections/ 配下の節の数
+            min: 1
+      stages:
+        - id: verify
+          name: Verify
+          description: draft.md の主張を検証し、結果を report.json に書く
+          artifacts:
+            reads: [draft.md]
+            writes: [report.json]
+            memory_in: [section_findings]
+            memory_out: [failing_checks, missing_inputs, claims]
+          goal:
+            qualitative: >-
+              draft.md の全ての主張が report.json で検証済みとして記録され、
+              検証できないものは仮定として明示されている。
+            quantitative:
+              report_exists:
+                description: report.json が存在しスキーマに適合する
+                equals: true
+              verified_ratio:
+                description: 主張のうち検証済みの割合
+                min: 0.8
+          end_state:
+            - id: checks_failed
+              description: >-
+                一つ以上の主張が検証に失敗している。失敗した検査の一覧が report.json にある。
+                この状態は inputs_missing に優先する。
+            - id: inputs_missing
+              description: >-
+                検証に必要な入力が draft.md にも作業ディレクトリにも無い。
+                失敗ではなく、検証できていない。
+            - id: unknown
+              description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
+          rollback:
+            - state: checks_failed
+              stage: draft
+              carry: [failing_checks]
+              max: 2
+            - state: inputs_missing
+              stage: collect
+              carry: [missing_inputs]
+              max: 1
+        - id: elaborate
+          name: Elaborate
+          description: >-
+            report.json の検証済みの主張ごとに子ワークフロー elaborate-claim.yaml を起動し、
+            sections/<i>/ に節を書かせる。子の結果を集約して section_findings にまとめる。
+          artifacts:
+            reads: [report.json]
+            writes: [sections/]
+            memory_in: [claims]
+            memory_out: [section_findings]
+          subworkflow:
+            ref: elaborate-claim.yaml
+            each: claims
+            item_as: claim
+            workspace: sections/
+            aggregate:
+              - state: sections_inconsistent
+                when:
+                  any: { stage: check_section, state: inconsistent }
+          goal:
+            qualitative: >-
+              全ての検証済みの主張について sections/<i>/section.md があり、
+              各節の section-check.json が矛盾なしを記録している。
+            quantitative:
+              sections_count:
+                description: sections/ 配下の節の数
+                min: 1
+          end_state:
+            - id: sections_inconsistent
+              description: >-
+                一つ以上の節が、再試行の後も主張と矛盾したままである。
+                矛盾箇所の一覧が各節の section-check.json にある。
+            - id: unknown
+              description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
+          rollback:
+            - state: sections_inconsistent
+              stage: verify
+              carry: [section_findings]
+              max: 1

@@ -448,3 +448,45 @@ software factory のタスク分割後の N 個の実装のように、ステー
 - 配布名 `harness-testing-framework`、import 名 `htf`。バージョンは pyproject.toml の `version` を正とし、git tag と一致させる
 - 保護ファイルの規定（第5.9節）は実パスで読む: `docs/plan.md`、`docs/decisions.md`、`schema/`、`src/htf/contract/`、各玩具の `workflow.yaml` と expectations
 - F4 の利用者セッションの読取制限「公開 API の文書」は `docs/adopting.md` と `htf` の公開 API の docstring を指す。`src/htf/` の実装は読まない
+
+---
+
+## ADR-011 F1 のスキーマ・検査器・契約で確定した小決定の一覧
+
+- 状態: 提案（F1 の人間ゲートで承認。却下された項目は一箇所の削除で戻せる構造にしてある）
+- 強制点: F1 スキーマと契約の承認
+- 起票: 2026-10-22
+
+### 文脈
+
+ADR-001〜010 の決定を実装に落とす時に、計画書にも ADR にも無い細部を決める必要があった。実装したものをここに一覧にし、ゲートで人間が承認または却下する。各項目に関係する ADR と、却下した時の戻し方を添える。
+
+### 一覧（実装済み。承認待ち）
+
+| # | 項目 | 内容 | 関係 | 却下時の戻し方 |
+| --- | --- | --- | --- | --- |
+| 11.1 | memory の前方流通 | memory はスナップショットに含まれ前方に流れる。`memory_in` は前方の `memory_out`、このステージへの carry、`workflow.inputs` のいずれかから供給される。carry はロールバック時に重ねる項目を限定するだけ | ADR-001 | 検査器の `memory_in_source` を外し、CONTRACT.md 第 1・3 節を直す |
+| 11.2 | 検査器の性質 `memory_in_source` | 11.1 を検査器の性質にした（計画書の列挙に無い追加） | ADR-001 | `CODES` と負例一件を削除 |
+| 11.3 | `writes` の末尾 `/` | ディレクトリ全体を指す。グロブは使わない | ADR-001 | スキーマの `pathList` の説明を直す。`subworkflow.workspace` の検査（配下にあること）も外す |
+| 11.4 | `user_input: true` | ユーザー入出力を使うステージの宣言。宣言の無いステージには束縛しない。F4 の完了条件「ユーザー待ちのステージ 1 以上」を YAML から検査できるようにするため | ADR-004 | スキーマから外し、束縛の制限を無くす |
+| 11.5 | `workflow.version` | 分類体系の版（省略可）。第2節「分類体系はハーネスと同じバージョンで管理する」の置き場。F5 の同期バージョン管理で使う | — | スキーマから外す |
+| 11.6 | `workflow.inputs` | 子ワークフローが呼び出し側に要求する memory の鍵。検査器が親の `item_as ∪ pass` と一致を確かめる | ADR-009 | — （ADR-009 (b) に必須） |
+| 11.7 | `rollback.max` は 1 以上の整数 | 0 を許さない（準正常は戻れるもの。即 escalate したいクラスは unknown に含める） | — | スキーマの `minimum` を 0 にする |
+| 11.8 | id と memory の鍵の形 | `^[a-z][a-z0-9_]*$`。`unknown` は end_state の id として予約 | — | スキーマの `pattern` を緩める |
+| 11.9 | 指標の基準の形 | `equals` か `min` / `max` のどちらか一方。両方は負例 | ADR-002 | スキーマの `oneOf` を外す |
+| 11.10 | 子ワークフローの深さ | v1.0 は深さ 1 まで（子は `subworkflow` を持てない）。検査器 `subworkflow_depth` | ADR-009 | `MAX_SUBWORKFLOW_DEPTH` を上げる。F2 の runner の再帰範囲が広がる |
+| 11.11 | 集約規則の形 | `any` / `all` × 子の (stage, state)。上から順に最初に成立した規則。`stage: "*"` のようなワイルドカードは持たない | ADR-009 | — |
+| 11.12 | 子を持つ親の goal 定性判定 | 親では分類器を呼ばず、すべての子 run が goal なら親も goal。end_state は集約規則で決める | ADR-009 | CONTRACT.md 第 7 節 4 を直し、親でも分類器を呼ぶ |
+| 11.13 | 遷移は 7 種 | 計画書 F2 の「6 種」に `subworkflow_aggregate` を加えた。6 種の内訳は next / rollback_within_phase / rollback_across_phase / escalate_unknown / escalate_max_exceeded / suspend_resume と読んだ | ADR-009 | 計画書の「6 種」の内訳を人間が示す |
+| 11.14 | 辺の計数はリセットしない | max の計数は run 全体で有効。リセットが要るなら契約の属性として起票 | ADR-003 | CONTRACT.md 第 6 節 |
+| 11.15 | スキーマ違反のコード対応 | 検査器はスキーマ違反を `schema` で報告するが、`rollback.max` に関するものだけ `rollback_max` に対応づける（「各性質に負例がある」をスキーマで守る性質にも成り立たせるため） | — | 対応づけを外し、`rollback_max` を検査器側の性質にする |
+| 11.16 | ruff の E501 を無視 | 全角文字を幅 2 で数えるため日本語で誤検出する。行長は formatter に任せる | ADR-010 | pyproject の `ignore` を外す |
+| 11.17 | スキーマの正本と同梱 | 正本は `schema/workflow.schema.json`。wheel には `htf/schema/` として同梱し、`htf.schema.schema_path()` が同梱 → リポジトリの順に探す | ADR-010 | — |
+
+### 推奨
+
+一覧のとおり承認する。却下する項目があれば番号で示す。
+
+### 決定
+
+（未記入。「全て承認」または却下する番号）
