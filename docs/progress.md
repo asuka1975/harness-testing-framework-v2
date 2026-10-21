@@ -51,7 +51,7 @@
 
 ### 実行した検証とその結果の要旨
 
-完了条件は実装より先に `check_init.py`（scratchpad: `/tmp/claude-1000/-home-asuka1975-work-ai-agent-harness-testing-framework-v2/f80f9564-2bb2-49fb-bea0-291c97af6aa8/scratchpad/check_init.py`。ツールチェーン未決のためリポジトリには置かず、ADR-010 決定後に `tests/` へ移植する）として書いた。検査内容:
+完了条件は実装より先に `check_init.py` として書いた。ツールチェーン未決のためリポジトリには置かず、全文を本節末尾に埋め込む（ADR-010 決定後に `tests/` へ移植する。再実行は全文をファイルに保存して `python3 -I check_init.py <リポジトリのルート>`）。検査内容:
 
 1. 骨格ディレクトリの存在、`examples/software-factory` が無いこと、`.git` の存在
 2. `schema/workflow.schema.json` が JSON として読め、`jsonschema.Draft202012Validator.check_schema` を通る
@@ -87,4 +87,89 @@ FAIL schema/workflow.schema.json equals appendix A (parsed JSON equality)
 FAIL schema/workflow.schema.json is byte-identical to appendix A block
 3 failure(s)
 exit=1
+```
+
+`check_init.py` の全文:
+
+```python
+"""F1 初期化タスクの完了条件（実装より先に書いた検査）。
+
+引数: リポジトリのルート。終了コードは 0 なら全条件を満たす。
+条件:
+  1. 第4節の骨格ディレクトリが存在する（language-agnostic な範囲）
+  2. schema/workflow.schema.json が JSON として読め、Draft 2020-12 メタスキーマに適合する
+  3. schema/workflow.schema.json の内容が docs/plan.md 付録 A の JSON ブロックと一致する（「そのまま置く」）
+  4. docs/decisions.md に ADR-001〜ADR-010 の見出しがあり、各 ADR に「決定」節がある
+  5. docs/progress.md の先頭の節が「次にやること」で、固定された4つの小節を持つ
+"""
+import json
+import re
+import sys
+from pathlib import Path
+
+import jsonschema
+
+root = Path(sys.argv[1]).resolve()
+failures: list[str] = []
+
+
+def check(cond: bool, msg: str) -> None:
+    print(("ok   " if cond else "FAIL ") + msg)
+    if not cond:
+        failures.append(msg)
+
+
+# 1. 骨格
+for d in [
+    "schema/examples", "contract", "runtime",
+    "testing/spec", "testing/harness", "testing/oracle", "testing/stages", "testing/e2e", "testing/triage",
+    "examples/toy-minimal/stages", "examples/toy-minimal/tests",
+    "docs", "reports",
+]:
+    check((root / d).is_dir(), f"dir exists: {d}")
+check(not (root / "examples/software-factory").exists(), "examples/software-factory is NOT pre-created (F4 の成果物)")
+check((root / ".git").is_dir(), "git repository initialized")
+
+# 2. スキーマがメタスキーマに適合
+schema_path = root / "schema/workflow.schema.json"
+schema = None
+try:
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    jsonschema.Draft202012Validator.check_schema(schema)
+    check(True, "schema parses and conforms to Draft 2020-12 metaschema")
+except Exception as e:  # noqa: BLE001
+    check(False, f"schema metaschema check: {e}")
+
+# 3. 付録 A と一致
+plan = (root / "docs/plan.md").read_text(encoding="utf-8")
+m = re.search(r"## 付録 A.*?```json\n(.*?)```", plan, re.S)
+check(m is not None, "appendix A json block found in plan.md")
+if m and schema is not None:
+    check(json.loads(m.group(1)) == schema, "schema/workflow.schema.json equals appendix A (parsed JSON equality)")
+    check(schema_path.read_text(encoding="utf-8") == m.group(1), "schema/workflow.schema.json is byte-identical to appendix A block")
+
+# 4. decisions.md
+dec = (root / "docs/decisions.md").read_text(encoding="utf-8")
+for i in range(1, 11):
+    check(re.search(rf"^## ADR-{i:03d}\b", dec, re.M) is not None, f"decisions.md has heading ADR-{i:03d}")
+sections = re.split(r"^## ADR-", dec, flags=re.M)[1:]
+check(len(sections) == 10, f"decisions.md has exactly 10 ADR sections (found {len(sections)})")
+for s in sections:
+    adr_id = s.split()[0]
+    check(re.search(r"^### 決定", s, re.M) is not None, f"ADR-{adr_id} has a 決定 section")
+    check(re.search(r"^### 推奨", s, re.M) is not None, f"ADR-{adr_id} has a 推奨 section")
+    check(re.search(r"^- 強制点:", s, re.M) is not None, f"ADR-{adr_id} has a 強制点 line")
+
+# 5. progress.md
+prog = (root / "docs/progress.md").read_text(encoding="utf-8")
+heads = re.findall(r"^## (.+)$", prog, re.M)
+check(bool(heads) and heads[0].strip() == "次にやること", "progress.md first section is 次にやること")
+for h in ["完了したこと", "未完了と理由", "発見した問題", "実行した検証とその結果の要旨"]:
+    check(re.search(rf"^### {h}", prog, re.M) is not None, f"progress.md has subsection {h}")
+for h in ["ワークフロー定義の問題", "フレームワーク本体の不足"]:
+    check(re.search(rf"^#### {h}", prog, re.M) is not None, f"progress.md splits 発見した問題 into {h}")
+
+print()
+print(f"{len(failures)} failure(s)")
+sys.exit(1 if failures else 0)
 ```
