@@ -1,4 +1,4 @@
-# 正例: 土台に子ワークフローを呼ぶステージを足したもの
+# 正例: 集約規則に unknown（明示の escalate）を他より上に置いたもの（ADR-011 G4 (b)）
 workflow:
   name: minimal
   description: 検査器の正例の土台
@@ -78,6 +78,10 @@ workflow:
             workspace: sections/
             aggregate:
               - state: unknown
+                when: { any: { stage: write, state: unknown } }
+              - state: unknown
+                when: { any: { stage: check, state: unknown } }
+              - state: sections_inconsistent
                 when: { any: { stage: check, state: inconsistent } }
           goal:
             qualitative: 全ての主張に節があり、互いに矛盾しない

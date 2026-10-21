@@ -109,7 +109,7 @@ runner が起こす遷移は次の 7 種（`TransitionKind`）。計画書 F2 �
 3. 子 run がすべて終わったら、親のステージ本体（束縛されていれば）を実行する。子の成果物は `workspace` 配下にあり、親の `writes` に含まれる
 4. 親の `evaluate`: goal 指標 → すべての子 run が `goal` なら `GOAL`（goal 定性判定は子の中で済んでいるものとし、親では分類器を呼ばない）→ そうでなければ `aggregate` を上から順に評価し、最初に成立した規則の `state` に落ちる（`decided_by: aggregate`）→ どれも成立しなければ `UNKNOWN`（人間へ。`cause: child_unresolved`）
    - `any: {stage, state}`: 一つ以上の子 run がその (stage, state) で終わった。`all`: すべての子 run がその (stage, state) で終わった
-   - 子の unknown を親の end_state に写すと、その unknown は人間に届かない。写すかどうかはハーネス側の判断で、写さなければ親の unknown として人間へ行く
+   - 規則の `state` には `unknown` も書ける（明示の escalate）。成立すると親は `UNKNOWN`（人間へ、`cause: child_unresolved`）。子の unknown を人間に届けたい時は、unknown の規則を他の規則より上に置く（規則は上から順に評価するため、下に置くと先に成立した end_state の規則が勝ち、unknown は人間に届かない）。どの規則にも無い終わり方は親の `UNKNOWN`
 5. 入れ子の深さは 1 まで（子は `subworkflow` を持てない）。recorder は子 run も記録再生する
 
 ## 8. 契約適合テスト（F2 で作る）

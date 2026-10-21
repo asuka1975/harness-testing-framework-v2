@@ -3,7 +3,7 @@
 workflow:
   name: elaborate-claim
   description: 主張一つを節にして、主張との整合を検査する
-  version: "0.1"
+  version: "0.2"
   inputs: [claim]
   phases:
     - id: elaborate
@@ -51,7 +51,8 @@ workflow:
           end_state:
             - id: inconsistent
               description: >-
-                section.md の一つ以上の文が claim と矛盾する。矛盾箇所の一覧が section-check.json にある。
+                section.md の一つ以上の文が claim と矛盾するか、claim から導けない。
+                該当する文の一覧が section-check.json にある。
             - id: unknown
               description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
           rollback:

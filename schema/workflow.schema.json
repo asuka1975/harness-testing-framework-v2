@@ -234,7 +234,7 @@
         "aggregateRule": {
             "type": "object",
             "properties": {
-                "state": { "description": "親の end_state の id（unknown 以外）", "$ref": "#/$defs/id" },
+                "state": { "description": "親の end_state の id。unknown も書け、その規則が成立すると親は unknown（明示の escalate）。子の unknown を人間に届けたい時は他の規則より上に置く", "$ref": "#/$defs/id" },
                 "when": {
                     "description": "any: 一つ以上の子 run がその (stage, state) で終わった。all: 全ての子 run がその (stage, state) で終わった",
                     "type": "object",

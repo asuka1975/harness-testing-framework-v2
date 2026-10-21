@@ -17,7 +17,7 @@
   subworkflow_depth            子は更に子を持たない（v1.0 は深さ 1 まで）
   subworkflow_inputs           each / pass は自ステージの memory_in、item_as ∪ pass == 子の inputs、
                                workspace は自ステージの writes のディレクトリ配下
-  subworkflow_aggregate        aggregate.state は自ステージの unknown 以外の end_state、
+  subworkflow_aggregate        aggregate.state は自ステージの end_state（unknown は明示の escalate）、
                                when の (stage, state) は子に存在する
 
 end_state の記述の良し悪し（成果物から観測できるか、互いに排他か、優先順）は検査しない。
@@ -410,12 +410,12 @@ class _Checker:
 
         for ai, rule in enumerate(sub["aggregate"]):
             apath = f"{spath}/aggregate/{ai}"
-            if rule["state"] not in es_ids - {UNKNOWN}:
+            if rule["state"] not in es_ids:
                 self.add(
                     file,
                     "subworkflow_aggregate",
                     f"{apath}/state",
-                    f"{rule['state']!r} は親の unknown 以外の end_state ではない",
+                    f"{rule['state']!r} は親の end_state ではない",
                 )
             (quant, outcome), *_ = rule["when"].items()
             cstage = child_idx.by_id.get(outcome["stage"])

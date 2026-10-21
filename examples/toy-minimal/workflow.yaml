@@ -12,7 +12,7 @@
 workflow:
   name: toy-minimal
   description: 入力を集めて下書きを書き、検証し、主張ごとに節を書く
-  version: "0.1"
+  version: "0.2"
   phases:
     - id: prepare
       name: Prepare
@@ -65,8 +65,8 @@ workflow:
           end_state:
             - id: inputs_insufficient
               description: >-
-                inputs.json の主張の一部に根拠の所在が無く、draft.md のその節が
-                空のまま残っている。足りない項目の一覧が draft.md の末尾にある。
+                inputs.json の一部の主張について、根拠の所在が指す先が作業ディレクトリに無いか空で、
+                draft.md のその節が空のまま残っている。足りない項目の一覧が draft.md の末尾にある。
             - id: unknown
               description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
           rollback:
@@ -98,7 +98,8 @@ workflow:
           goal:
             qualitative: >-
               draft.md の各主張が report.json で「検証済み」か「仮定」のどちらかとして記録され、
-              仮定とした主張にはその理由が記録されている。
+              仮定とした主張にはその理由が記録されている。仮定とは根拠はあるが検証手段が無い主張をいい、
+              根拠の所在が無い主張は仮定にできない。
             quantitative:
               report_exists:
                 description: report.json が存在しスキーマに適合する
@@ -142,6 +143,13 @@ workflow:
             item_as: claim
             workspace: sections/
             aggregate:
+              # 子の unknown は人間に届ける（明示の escalate を他の規則より上に置く。ADR-011 G4 (b)）
+              - state: unknown
+                when:
+                  any: { stage: write_section, state: unknown }
+              - state: unknown
+                when:
+                  any: { stage: check_section, state: unknown }
               - state: sections_inconsistent
                 when:
                   any: { stage: check_section, state: inconsistent }
