@@ -1,0 +1,71 @@
+
+--- (a) verify#1 に checks_failed を注入（happy）: status=completed
+  trace: [('next', 'collect', 'draft'), ('next', 'draft', 'verify'), ('rollback_across_phase', 'verify', 'draft'), ('next', 'draft', 'verify'), ('next', 'verify', 'elaborate'), ('subworkflow_aggregate', 'elaborate', None), ('next', 'elaborate', None)]
+  [0] toy-minimal/collect#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [0] toy-minimal/draft#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [0] toy-minimal/verify#1 cls=checks_failed  injected=True decided_by=classifier carry_out={} reason='注入（元の判定: goal）'
+  [0] toy-minimal/draft#2 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [0] toy-minimal/verify#2 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [0] toy-minimal/elaborate#1 cls=goal           injected=False decided_by=aggregate carry_out={} reason='全ての子 run が goal'
+  [1] elaborate-claim/write_section#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [1] elaborate-claim/check_section#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [2] elaborate-claim/write_section#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [2] elaborate-claim/check_section#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+
+--- (b) draft#1 に unknown を注入（happy, human=abort）: status=aborted
+  trace: [('next', 'collect', 'draft'), ('escalate_unknown', 'draft', None)]
+  [0] toy-minimal/collect#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [0] toy-minimal/draft#1 cls=unknown        injected=True decided_by=threshold carry_out={} reason='注入（元の判定: goal）'
+  triage に積まれた件数: 1 [('draft', 'unknown', {'kind': 'unknown', 'state': None, 'confidence': None, 'decided_by': 'threshold', 'reason': '注入（元の判定: goal）'})]
+
+--- (c) check_section#1 に unknown を注入（happy, human=continue_as_goal）: status=completed
+  trace: [('next', 'collect', 'draft'), ('next', 'draft', 'verify'), ('next', 'verify', 'elaborate'), ('subworkflow_aggregate', 'elaborate', None), ('escalate_unknown', 'elaborate', None), ('next', 'elaborate', None)]
+  [0] toy-minimal/collect#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [0] toy-minimal/draft#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [0] toy-minimal/verify#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [0] toy-minimal/elaborate#1 cls=unknown        injected=False decided_by=aggregate carry_out={} reason='規則 any (check_section, unknown) が成立'
+  [1] elaborate-claim/write_section#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [1] elaborate-claim/check_section#1 cls=unknown        injected=True decided_by=threshold carry_out={} reason='注入（元の判定: goal）'
+  [2] elaborate-claim/write_section#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [2] elaborate-claim/check_section#1 cls=unknown        injected=True decided_by=threshold carry_out={} reason='注入（元の判定: goal）'
+
+--- (d) 存在しない鍵の注入: status=completed injected=[False, False, False, False]
+
+--- (e) elaborate#1 に sections_inconsistent を注入: status=completed
+  trace: [('next', 'collect', 'draft'), ('next', 'draft', 'verify'), ('next', 'verify', 'elaborate'), ('subworkflow_aggregate', 'elaborate', None), ('rollback_within_phase', 'elaborate', 'verify'), ('next', 'verify', 'elaborate'), ('subworkflow_aggregate', 'elaborate', None), ('next', 'elaborate', None)]
+  [0] toy-minimal/collect#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [0] toy-minimal/draft#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [0] toy-minimal/verify#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [0] toy-minimal/elaborate#1 cls=sections_inconsistent injected=True decided_by=classifier carry_out={} reason='注入（元の判定: goal）'
+  [0] toy-minimal/verify#2 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [0] toy-minimal/elaborate#2 cls=goal           injected=False decided_by=aggregate carry_out={} reason='全ての子 run が goal'
+  [1] elaborate-claim/write_section#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [1] elaborate-claim/check_section#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [2] elaborate-claim/write_section#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [2] elaborate-claim/check_section#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [3] elaborate-claim/write_section#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [3] elaborate-claim/check_section#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [4] elaborate-claim/write_section#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+  [4] elaborate-claim/check_section#1 cls=goal           injected=False decided_by=qualitative carry_out={} reason=''
+
+--- (f) E2E 計画
+  対象数: 17 到達: 17 未到達: []
+  誘発: 15 注入: 2 [('toy-minimal', 'draft', 'unknown'), ('elaborate-claim', 'check_section', 'unknown')]
+  計画項目数: 17 run の status: ['completed', 'aborted', 'completed', 'completed', 'aborted', 'completed', 'completed', 'completed', 'aborted', 'completed', 'completed', 'completed', 'completed', 'completed', 'completed', 'completed', 'completed']
+  plan- 0 induce ('toy-minimal', 'collect', 'goal') 自分の run で到達=True injected={False}
+  plan- 1 induce ('toy-minimal', 'collect', 'unknown') 自分の run で到達=True injected={False}
+  plan- 2 induce ('toy-minimal', 'draft', 'goal') 自分の run で到達=True injected={False}
+  plan- 3 induce ('toy-minimal', 'draft', 'inputs_insufficient') 自分の run で到達=True injected={False}
+  plan- 4 inject ('toy-minimal', 'draft', 'unknown') 自分の run で到達=True injected={True}
+  plan- 5 induce ('toy-minimal', 'verify', 'goal') 自分の run で到達=True injected={False}
+  plan- 6 induce ('toy-minimal', 'verify', 'checks_failed') 自分の run で到達=True injected={False}
+  plan- 7 induce ('toy-minimal', 'verify', 'inputs_missing') 自分の run で到達=True injected={False}
+  plan- 8 induce ('toy-minimal', 'verify', 'unknown') 自分の run で到達=True injected={False}
+  plan- 9 induce ('toy-minimal', 'elaborate', 'goal') 自分の run で到達=True injected={False}
+  plan-10 induce ('toy-minimal', 'elaborate', 'sections_inconsistent') 自分の run で到達=True injected={False}
+  plan-11 induce ('toy-minimal', 'elaborate', 'unknown') 自分の run で到達=True injected={False}
+  plan-12 induce ('elaborate-claim', 'write_section', 'goal') 自分の run で到達=True injected={False}
+  plan-13 induce ('elaborate-claim', 'write_section', 'unknown') 自分の run で到達=True injected={False}
+  plan-14 induce ('elaborate-claim', 'check_section', 'goal') 自分の run で到達=True injected={False}
+  plan-15 induce ('elaborate-claim', 'check_section', 'inconsistent') 自分の run で到達=True injected={False}
+  plan-16 inject ('elaborate-claim', 'check_section', 'unknown') 自分の run で到達=True injected={True}

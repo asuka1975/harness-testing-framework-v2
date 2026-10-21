@@ -1,0 +1,21 @@
+src/htf/runtime/__init__.py               8      0      0      0   100%
+src/htf/runtime/checkpoint.py            92      1     36      1    98%
+src/htf/runtime/context.py               42      3      8      2    90%
+src/htf/runtime/loader.py                21      0      2      0   100%
+src/htf/runtime/model.py                137      3     22      3    96%
+src/htf/runtime/oracle.py               106     14     40      6    86%
+src/htf/runtime/recorder.py              93      2     24      3    96%
+src/htf/runtime/runner.py               395     16    116     16    93%
+src/htf/testing/__init__.py               0      0      0      0   100%
+src/htf/testing/e2e/__init__.py         177     12     56      6    91%
+src/htf/testing/harness/__init__.py      70      8     20      5    83%
+src/htf/testing/oracle/__init__.py      124      5     26      5    93%
+src/htf/testing/spec/__init__.py          2      0      0      0   100%
+src/htf/testing/spec/__main__.py          3      3      0      0     0%
+src/htf/testing/spec/checker.py         224      8    104      4    96%
+src/htf/testing/spec/cli.py              41      5     12      1    85%
+src/htf/testing/stages/__init__.py      183     13     66      7    91%
+src/htf/testing/triage/__init__.py       86     14     26      6    75%
+TOTAL                                  1804    107    558     65    92%
+127 passed in 134.49s (0:02:14)
+exit 0

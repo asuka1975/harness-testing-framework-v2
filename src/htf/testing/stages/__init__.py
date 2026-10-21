@@ -49,11 +49,18 @@ def run_many(make_runner: Callable[[int], Runner], *, runs: int, seed: int = 0) 
 
 def evaluation_units(result: RunResult) -> list[list[EvaluationRecord]]:
     """親 run と各子 run の評価記録の列（run 単位）。子は親の記録と別の単位にする。"""
-    units = [list(result.evaluations)]
+    return [unit for unit, _status in evaluation_units_with_status(result)]
+
+
+def evaluation_units_with_status(result: RunResult) -> list[tuple[list[EvaluationRecord], str]]:
+    """run 単位の評価記録と、その run 単位の終わり方（completed / aborted / escalated / suspended）。"""
+    units: list[tuple[list[EvaluationRecord], str]] = [
+        (list(result.evaluations), result.status.value)
+    ]
     for entries in result.child_results.values():
         for child_runs in entries:
             for child in child_runs:
-                units.extend(evaluation_units(child))
+                units.extend(evaluation_units_with_status(child))
     return units
 
 
@@ -201,15 +208,16 @@ def representative_key_default(record: EvaluationRecord) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()[:12]
 
 
-def _downstream(unit: Sequence[EvaluationRecord], index: int, mode: str) -> str:
+def _downstream(unit: Sequence[EvaluationRecord], index: int, mode: str, status: str) -> str:
+    """下流のクラス。終端は run 単位の終わり方で区別する（end:completed / end:aborted / end:escalated）。"""
     rec = unit[index]
     if mode == "same_stage":
         for later in unit[index + 1 :]:
             if later.stage_id == rec.stage_id:
                 return later.cls
-        return "end"
+        return f"end:{status}"
     if mode == "next":
-        return unit[index + 1].cls if index + 1 < len(unit) else "end"
+        return unit[index + 1].cls if index + 1 < len(unit) else f"end:{status}"
     raise ValueError(mode)
 
 
@@ -240,10 +248,13 @@ class IndependenceReport:
     p_value: float
     permutations: int
     alpha: float
+    verifiable: bool = (
+        True  # 群が二つ以上あり検定できたか。False は「検証不能」であって「未検出」ではない
+    )
 
     @property
     def flagged(self) -> bool:
-        return self.p_value < self.alpha
+        return self.verifiable and self.p_value < self.alpha
 
     def __str__(self) -> str:
         return (
@@ -269,15 +280,15 @@ def independence(
     """
     pairs: list[tuple[str, str]] = []
     for sample in samples:
-        for unit in evaluation_units(sample.result):
+        for unit, status in evaluation_units_with_status(sample.result):
             for i, rec in enumerate(unit):
                 if rec.stage_id == stage_id and rec.cls == cls:
-                    pairs.append((key(rec), _downstream(unit, i, downstream)))
+                    pairs.append((key(rec), _downstream(unit, i, downstream, status)))
     groups: dict[str, Counter[str]] = defaultdict(Counter)
     for g, d in pairs:
         groups[g][d] += 1
     if len(groups) < 2 or len(pairs) < 2:
-        return IndependenceReport(stage_id, cls, dict(groups), 0.0, 1.0, 0, alpha)
+        return IndependenceReport(stage_id, cls, dict(groups), 0.0, 1.0, 0, alpha, verifiable=False)
     observed = _g_statistic(groups)
     rng = random.Random(seed)
     labels = [g for g, _ in pairs]
@@ -305,6 +316,7 @@ __all__ = [
     "Violation",
     "check_expectations",
     "evaluation_units",
+    "evaluation_units_with_status",
     "independence",
     "load_expectations",
     "representative_key_default",

@@ -199,7 +199,9 @@ class ReferenceRuntime:
         self.child_results: dict[str, list[list[RunResult]]] = defaultdict(list)
         self.evaluations: list[EvaluationRecord] = []
         self.entry_counts: Counter[str] = Counter()  # Runner が進入のたびに増やす
-        self.inject: dict[tuple[str, int], Verdict] = {}  # Runner から渡される。子 run にも引き継ぐ
+        self.inject: dict[
+            tuple[str, str, int], Verdict
+        ] = {}  # Runner から渡される。子 run にも引き継ぐ
         # ステージ id → そのステージへ carry で運ばれうる鍵（戻り先として参照する rollback の carry の和）
         self._carry_in_keys: dict[str, set[str]] = defaultdict(set)
         for s in workflow.stages:
@@ -418,6 +420,41 @@ class ReferenceRuntime:
         return outcomes
 
 
+def _validate_inject(workflow: Workflow, inject: Mapping[tuple[str, str, int], Verdict]) -> None:
+    known: set[tuple[str, str]] = set()
+    stack = [workflow]
+    while stack:
+        wf = stack.pop()
+        for s in wf.stages:
+            known.add((wf.name, s.id))
+            if s.subworkflow is not None:
+                stack.append(s.subworkflow.child)
+    for key, verdict in inject.items():
+        if len(key) != 3 or (key[0], key[1]) not in known:
+            raise ValueError(
+                f"注入の鍵 {key!r} が定義に無い（(workflow 名, stage id, 進入回数) で指定する）"
+            )
+        if key[2] < 1:
+            raise ValueError(f"注入の進入回数は 1 以上: {key!r}")
+        if verdict.kind is VerdictKind.END_STATE:
+            stage = next(
+                s
+                for wf in _descendants(workflow)
+                for s in wf.stages
+                if (wf.name, s.id) == (key[0], key[1])
+            )
+            if verdict.state not in stage.end_state_ids():
+                raise ValueError(f"注入の end_state {verdict.state!r} はステージ {key[1]!r} に無い")
+
+
+def _descendants(workflow: Workflow) -> list[Workflow]:
+    out = [workflow]
+    for s in workflow.stages:
+        if s.subworkflow is not None:
+            out.extend(_descendants(s.subworkflow.child))
+    return out
+
+
 class Runner:
     def __init__(
         self,
@@ -430,12 +467,15 @@ class Runner:
         strict_writes: bool = True,
         initial_memory: Mapping[str, JsonValue] | None = None,
         child: bool = False,
-        inject: Mapping[tuple[str, int], Verdict] | None = None,
+        inject: Mapping[tuple[str, str, int], Verdict] | None = None,
     ) -> None:
         self.workflow = workflow
         self._child = child  # 子 run: escalate は人間へ行かず ChildOutcome になる
-        # 注入: (stage id, 進入回数) → その進入の評価結果を差し替える（E2E の「注入」。記録に残る）
-        self.inject: dict[tuple[str, int], Verdict] = dict(inject or {})
+        # 注入: (workflow 名, stage id, 進入回数) → その進入の評価結果を差し替える（E2E の「注入」。記録に残る。
+        # Verdict だけを差し替え、成果物と memory は本体のまま。子 run にも同じ表が渡る）
+        self.inject: dict[tuple[str, str, int], Verdict] = dict(inject or {})
+        if not child:
+            _validate_inject(workflow, self.inject)
         self.rt = ReferenceRuntime(
             workflow,
             bindings,
@@ -501,7 +541,9 @@ class Runner:
             self.memory = dict(end.memory)
             self.end_snapshots.append(end)
             verdict = self.rt.evaluate(stage.id, end)
-            injected = self.inject.get((stage.id, self.rt.entry_counts[stage.id]))
+            injected = self.inject.get(
+                (self.workflow.name, stage.id, self.rt.entry_counts[stage.id])
+            )
             if injected is not None:
                 verdict = dataclasses.replace(
                     injected, reason=f"注入（元の判定: {verdict.kind.value}）{injected.reason}"

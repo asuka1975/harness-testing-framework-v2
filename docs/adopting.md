@@ -183,11 +183,12 @@ subworkflow:
 
 - **評価ログ**: `result.evaluations`（`EvaluationRecord`: stage、進入回数、状態文書、選択肢、分類結果、Verdict、carry）。子 run の分は `result.child_results` の各 `RunResult` にある。トリアージ・コーパス・分布の集計はここから作る
 - **分布テスト**（`htf.testing.stages`）: 確率的な偽本体（種を固定し既知の分布でクラスを出す）で `run_many` → `tally` → `check_expectations`。expectations は YAML（`runs`、`seed`、`stages.<stage>.<first|reentry>.<class>: {min, max}`、`outcomes`）。実例 `examples/toy-minimal/tests/expectations/`
-- **独立性検証**（`independence`）: クラス内の代表（既定: 戻り先へ運ぶ carry の中身）ごとに下流のクラス分布が揃うかを、種つきの並べ替え検定で調べる。代表の鍵は `key=` で差し替える
-- **遷移行列とマルコフ合成**（`transition_matrix`、`htf.testing.e2e.synthesize_outcomes`）: P(class | stage, first/reentry) から run 全体の結果を合成し、`compare_outcomes` で実測と比べる
-- **E2E カバレッジ**（`htf.testing.e2e`）: `enumerate_targets` が定義から (workflow, stage, class) を列挙する。計画 YAML で各対象を台本で誘発するか、`Runner(inject={(stage, n): Verdict})` で注入する。`run_plan` が到達を数える（誘発 / 注入を区別）。実例 `examples/toy-minimal/tests/e2e/plan.yaml`
-- **オラクル検証**（`htf.testing.oracle`）: コーパス（JSONL）に対して分類器を走らせ、κ・ECE・再実行一致を出す。`ConfusionClassifier` は既知の混同行列を持つ偽物（ランナーの検証用）
-- **トリアージ**（`htf.testing.triage.TriageQueue`）: run の unknown と低確信度の評価記録を待ち行列に積み、人間がラベルを付け、コーパスに書き出す。記述の改訂は提案止まり（人間の承認）
+- **独立性検証**（`independence`）: クラス内の代表（既定: 戻り先へ運ぶ carry の中身）ごとに下流のクラス分布が揃うかを、種つきの並べ替え検定で調べる。代表の鍵は `key=` で差し替える。群が一つしか無ければ `verifiable=False`（検証不能。未検出ではない）。carry が代表を識別しないクラスは既定の鍵では検証できない
+- **遷移行列とマルコフ合成**（`transition_matrix`、`htf.testing.e2e.synthesize_outcomes`）: P(class | stage, first/reentry) から run 全体の結果を合成し、`compare_outcomes` で実測と比べる。子を持つワークフローでは子 run 数の分布（`samples=` か `child_counts=`）が必須。比較は completed / aborted の頻度で粗い（ADR-013 13.11）
+- **E2E カバレッジ**（`htf.testing.e2e`）: `enumerate_targets` が定義から (workflow, stage, class) を列挙する。計画 YAML で各対象を台本で誘発するか、`Runner(inject={(workflow 名, stage, n): Verdict})` で n 回目の進入の判定を注入する。注入は Verdict だけを差し替え、成果物と memory は本体のまま（戻り先が carry を受ける経路は注入では踏めない）。鍵は定義と照合される。`run_plan` が到達を数える（誘発 / 注入を区別）。実例 `examples/toy-minimal/tests/e2e/plan.yaml`
+- **オラクル検証**（`htf.testing.oracle`）: コーパス（JSONL）に対して分類器を走らせ、κ・ECE・再実行一致を出す。`ConfusionClassifier` は既知の混同行列を持つ偽物（ランナーの検証用。状態文書の `truth: <label>` 行から真のラベルを読む約束で、実コーパスにこの行は無い）
+- **トリアージ**（`htf.testing.triage.TriageQueue`）: run の unknown と低確信度の評価記録を待ち行列に積み、人間がラベルを付け、コーパスに書き出す。注入で作られた判定は既定で積まない。記述の改訂は提案止まり（人間の承認）
+- 分布と E2E のテストは数十秒かかる。`uv run pytest -m "not distribution and not e2e"` で常時の段だけを回せる
 
 ## 7. 迷ったら
 

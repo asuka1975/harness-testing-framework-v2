@@ -595,7 +595,7 @@ ADR-001〜010 の決定を実装に落とす時に、計画書にも ADR にも�
 | --- | --- | --- | --- | --- |
 | 13.1 | 評価ログ | runtime は評価のたびに `EvaluationRecord`（workflow、stage、進入回数、状態文書、選択肢、分類結果、Verdict、carry_in / carry_out、注入か）を `RunResult.evaluations` に残す。トリアージ・コーパス・分布の集計はすべてここから作る | `htf.runtime` | — |
 | 13.2 | 進入回数と first / reentry | 進入回数は Runner が数える（中断からの再開は数えない）。1 回目を first、2 回目以降を reentry として分布を集計する。確率的偽本体も同じ規則で数える | `htf.runtime`、toy の `StochasticSource` | carry の有無で分ける |
-| 13.3 | 注入 | `Runner(inject={(stage, n): Verdict})` で n 回目の進入の判定を差し替える。記録の `injected` と `reason` に残り、E2E のカバレッジは誘発と注入を区別して数える。子 run にも同じ表が渡る | `htf.runtime` | — |
+| 13.3 | 注入 | `Runner(inject={(workflow 名, stage, n): Verdict})` で n 回目の進入の判定を差し替える。記録の `injected` と `reason` に残り、E2E のカバレッジは誘発と注入を区別して数える。子 run にも同じ表が渡る（子は子の workflow 名で指定）。鍵は定義と照合し、無ければ `ValueError`。差し替えるのは Verdict だけで、成果物と memory は本体のまま（carry は伴わない。検証役 B2 / B3 / B4） | `htf.runtime` | — |
 | 13.4 | expectations 形式 | `name`、`origin`（v0.1 は `workflow_start` のみ。保存した開始時スナップショットからの起動は欄だけ）、`runs`、`seed`、`stages.<stage>.<first|reentry>.<class>: {min, max}`、`outcomes.<status>: {min, max}`。観測頻度が区間に入るかで判定（統計的検定はしない） | `examples/toy-minimal/tests/expectations/` | 形式の改訂（F3 内 2 回まで。現在 0 回） |
 | 13.5 | 代表の鍵 | 独立性検証の群分けの鍵は設定項目（`independence(key=...)`）。既定は戻り先へ運ぶ carry（`carry_out`）の中身のハッシュ。carry が無いクラスは一群になり検証できない | `htf.testing.stages` | 既定を変える |
 | 13.6 | 下流の定義 | 既定は「同じ run 単位（親 run または各子 run）での、同じステージの次の評価のクラス（無ければ end）」。`downstream="next"` で直後の評価にも変えられる | `htf.testing.stages` | — |
@@ -603,14 +603,27 @@ ADR-001〜010 の決定を実装に落とす時に、計画書にも ADR にも�
 | 13.8 | オラクル検証の指標 | Cohen の κ、ECE（既定 10 ビン）、再実行一致（既定 2 回）。toy のテストの許容差: κ ±0.03（N=6000）、ECE < 0.03 / 既知の過信との差 ±0.03 | `htf.testing.oracle`、`tests/test_f3_oracle.py` | 許容差を変える |
 | 13.9 | コーパス形式 | JSONL。一行: id、workflow、stage、document、options（id と description）、label、note。トリアージの `export_corpus` がこの形で書く | `htf.testing.oracle` | — |
 | 13.10 | E2E の対象 | (workflow, stage, class) で、class は goal・各 end_state・unknown。親と子を列挙する。toy-minimal は 17 | `htf.testing.e2e` | goal を外す |
-| 13.11 | マルコフ合成 | 遷移行列 P(class | stage, first/reentry) から、ワークフロー定義の規則（next / rollback / max / 集約）で run を合成する。escalate は中止（aborted）とみなす。子 run の数は観測された分布から引く。実測との比較は結果（completed / aborted）の頻度の差で、許容差の仮置きは 0.1（N=300 / 合成 4000） | `htf.testing.e2e`、`tests/test_f3_e2e.py` | 許容差を変える |
+| 13.11 | マルコフ合成 | 遷移行列 P(class | stage, first/reentry) から、ワークフロー定義の規則（next / rollback / max / 集約）で run を合成する。escalate は中止（aborted）とみなす。子 run の数は観測された分布から引く（子を持つワークフローでは `samples=` か `child_counts=` が必須。無ければ `ValueError`。検証役 B1）。実測との比較は結果（completed / aborted）の頻度の差で、許容差の仮置きは 0.1（N=300 / 合成 4000）。この比較は粗く、クラス内の代表ごとの分岐は結果頻度にほぼ現れない。負例（toy の split）は主張ごとに持続する振る舞い（奇数番目は常に stuck）にして run 全体の結果に効かせている | `htf.testing.e2e`、`tests/test_f3_e2e.py` | 許容差を変える、比較の粒度を広げる |
 | 13.12 | トリアージの対象 | unknown の評価記録（分類器を呼んだものだけ。集約と評価不能は対象外）と、与えれば確信度が閾値未満のもの。子 run も辿る。ラベルは選択肢に無ければ拒否 | `htf.testing.triage` | — |
 | 13.13 | pytest のマーカー | `distribution` と `e2e`。偽本体なので今は常時実行（約 50 秒）。F5 で段階分け | pyproject | — |
-| 13.14 | toy の確率的本体 | 成果物を書くコードは決定論的本体と共通で、結果の供給元だけ `StochasticSource`（種つき分布）に差し替える。`split` 構成は check_section の再進入で奇数番目の主張の分布を差し替え、独立性検証とマルコフ合成の負例になる | `examples/toy-minimal/` | — |
+| 13.14 | toy の確率的本体 | 成果物を書くコードは決定論的本体と共通で、結果の供給元だけ `StochasticSource`（種つき分布）に差し替える。`split` 構成は check_section の分布を主張の偶奇で差し替え（奇数番目は first も reentry も常に inconsistent、偶数番目は reentry で常に goal）、独立性検証とマルコフ合成の負例になる。親側のクラスの代表（失敗した主張）は供給元の `pick` で選ぶ（検証役 T4） | `examples/toy-minimal/` | — |
+| 13.15 | 独立性の検証不能 | 群が一つしか無い（代表の鍵が識別しない、または記録が足りない）クラスは `IndependenceReport.verifiable=False` で返し、`flagged` にならない。「検証不能」と「未検出」を分ける（検証役 B5） | `htf.testing.stages` | — |
+| 13.16 | 下流の終端 | 下流が無い時の値は `end:<run 単位の終わり方>`（completed / aborted / escalated）で、正常完了と escalate を区別する（検証役 B7） | `htf.testing.stages` | `end` に戻す |
+| 13.17 | トリアージと注入 | 注入で作られた判定は `TriageItem.injected` に残り、既定では待ち行列に積まない（`include_injected=True` で積む。検証役 B6） | `htf.testing.triage` | — |
+| 13.18 | 偽の分類器の約束 | `ConfusionClassifier` は状態文書の `truth: <label>` 行から真のラベルを読む。ランナーの検証専用で、実コーパスにはこの行は無い（検証役 B8） | `htf.testing.oracle` | — |
+| 13.19 | テストの変更の記録 | F3 の実装コミットがテスト（`_corpus` の `truth:` 行）に触れた（検証役 B8。運用規則からの逸脱）。以後、完了条件のテストの変更は別コミットにし、理由を progress.md に残す | 運用 | — |
+
+### 閾値について人間に見せる懸念（検証役 `f3-test-runners` の報告 第 3 節の要旨）
+
+- **13.4 区間**: 統計的検定をせず固定の種での観測頻度で判定する。N≈290 で 1 SE≈0.03、toy の余裕は 2.4〜4.5 SE。実データでは (a) セルごとの N が run 数より小さい、(b) 複数セルで偶然の違反が積み上がる、(c) 種を固定すると通る種を選べる。区間を「名目 ± k·SE」か信頼区間で書ける形にするか、N と幅の関係を文書化することを勧める。幅は実データ無しには決められない
+- **13.7 並べ替え回数と有意水準**: p の下限は 1/(回数+1)。既定 200 回なら 0.005 で、split 用の閾値 0.01 に近い。回数と閾値は組で決める。分割なしの判定 p ≥ 0.05 は 5% の偽陽性を持ち、固定の種が隠す。多数のクラスを検査すると多重比較になる
+- **13.8 κ / ECE の許容差**: κ ±0.03 は N=6000 で約 3 SE だが N=500 では外れることがある。許容差は N に依存するので N を規定に含めるか SE 倍数で書く。ECE のビン数 10 は実 LLM の確信度の分布が出るまで決められない。「違う κ」の分解能は 0.1
+- **13.11 マルコフの許容差 0.1**: 比較が completed / aborted の 2 値で粗い。子 run 数を正しく渡せば markov の差は 0.01 程度。クラス内の代表ごとの分岐は結果頻度にほぼ現れないので、検出力を持たせるには比較の粒度を広げる必要がある。許容差は粒度を決めてから
+- **13.13 常時実行**: 分布 / E2E テストは約 50 秒。`-m "not distribution and not e2e"` で外せる
 
 ### 推奨
 
-13.1〜13.14 を承認。閾値（13.4、13.7、13.8、13.11）は実データが出るまで仮置きのまま。
+13.1〜13.19 を承認。閾値（13.4、13.7、13.8、13.11）は実データが出るまで仮置きのまま。
 
 ### 決定
 

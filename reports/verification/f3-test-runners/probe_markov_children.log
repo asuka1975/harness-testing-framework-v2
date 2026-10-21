@@ -1,0 +1,12 @@
+
+[markov] observed={'completed': 0.63, 'aborted': 0.37}  子 run 数の観測: {2: 278}
+  テストどおり（samples なし → 子 run 数 1）           predicted completed(seed5)=0.724 dev(seed5)=0.094 ok=True  dev 範囲(5 種)=0.085..0.097
+  観測した子 run 数を渡す（samples=）                 predicted completed(seed5)=0.622 dev(seed5)=0.009 ok=True  dev 範囲(5 種)=0.004..0.012
+  child_counts=[2] を明示                     predicted completed(seed5)=0.626 dev(seed5)=0.004 ok=True  dev 範囲(5 種)=0.001..0.010
+  遷移行列: P(inc|first)=0.406 P(inc|reentry, pooled)=0.254 → 子 1 つが stuck する確率(pooled)=0.103
+
+[split] observed={'completed': 0.533, 'aborted': 0.467}  子 run 数の観測: {2: 335}
+  テストどおり（samples なし → 子 run 数 1）           predicted completed(seed5)=0.696 dev(seed5)=0.163 ok=False  dev 範囲(5 種)=0.154..0.169
+  観測した子 run 数を渡す（samples=）                 predicted completed(seed5)=0.544 dev(seed5)=0.010 ok=True  dev 範囲(5 種)=0.007..0.014
+  child_counts=[2] を明示                     predicted completed(seed5)=0.551 dev(seed5)=0.017 ok=True  dev 範囲(5 種)=0.000..0.017
+  遷移行列: P(inc|first)=0.407 P(inc|reentry, pooled)=0.653 → 子 1 つが stuck する確率(pooled)=0.266

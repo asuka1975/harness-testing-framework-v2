@@ -24,6 +24,10 @@ class ScriptCursor:
         self._outcomes = {k: list(v) for k, v in outcomes.items()}
         self._entries: Counter[str] = Counter()
 
+    def pick(self, stage_id: str, items: Sequence[str]) -> list[str]:
+        """台本では先頭を選ぶ（決定論）。"""
+        return list(items[:1])
+
     def next(self, stage_id: str, **_: object) -> str:
         seq = self._outcomes.get(stage_id) or [GOAL]
         i = self._entries[stage_id]
@@ -85,16 +89,17 @@ class StochasticSource:
         kind = "first" if self._entries[key] == 1 else "reentry"
         kinds = self.distributions[stage_id]
         dist = kinds.get(kind) or kinds["first"]
-        if (
-            self.split
-            and stage_id == self.split["stage"]
-            and kind == "reentry"
-            and claim is not None
-            and self.claims.index(claim) % 2 == 1
-        ):
-            dist = dict(self.split["odd_claims_reentry"])  # type: ignore[arg-type]
+        if self.split and stage_id == self.split["stage"] and claim is not None:
+            parity = "odd_claims" if self.claims.index(claim) % 2 == 1 else "even_claims"
+            override = (self.split.get(parity) or {}).get(kind)  # type: ignore[union-attr]
+            if override:
+                dist = dict(override)
         classes = list(dist)
         return self.rng.choices(classes, [dist[c] for c in classes])[0]
+
+    def pick(self, stage_id: str, items: Sequence[str]) -> list[str]:
+        """失敗した主張などを種つきで一つ選ぶ（親側のクラスの代表を主張ごとに分けるため）。"""
+        return [self.rng.choice(list(items))] if items else []
 
 
 # --- 親 workflow.yaml ---
@@ -190,9 +195,12 @@ class Verify:
             assumed = [{"claim": c, "reason": "根拠はあるが検証手段が無い"} for c in claims[:1]]
             verified = claims[1:]
         elif outcome == "checks_failed":
-            failed, verified = claims[:1], claims[1:]
+            failed = self.cursor.pick("verify", claims)
+            verified = [c for c in claims if c not in failed]
         elif outcome == "inputs_missing":
-            missing, verified = [f"{c} の外部データ" for c in claims[:1]], claims[1:]
+            picked = self.cursor.pick("verify", claims)
+            missing = [f"{c} の外部データ" for c in picked]
+            verified = [c for c in claims if c not in picked]
         ratio = len(verified) / len(claims) if claims else 0.0
         report = {
             "outcome": outcome,

@@ -118,10 +118,12 @@ def test_inject_keys_are_workflow_qualified_and_validated(toy: ModuleType, tmp_p
             workspace=tmp_path / "ws",
             inject={("no_such_workflow", "verify", 1): Verdict(VerdictKind.GOAL)},
         )
-    # 子のステージは子の workflow 名で指定する
+    # 子のステージは子の workflow 名で指定する（子が unknown → 親も unknown → 中止）
+    from htf.contract import Abort
+
     runner = Runner(
         workflow,
-        bindings,
+        toy.harness.make_bindings(scenario, human=ScriptedHuman([Abort()])),
         workspace=tmp_path / "ws2",
         inject={("elaborate-claim", "check_section", 1): Verdict(VerdictKind.UNKNOWN)},
     )

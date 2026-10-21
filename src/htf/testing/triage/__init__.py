@@ -32,6 +32,7 @@ class TriageItem:
     label: str | None = None
     note: str = ""
     carry_in: dict[str, JsonValue] = field(default_factory=dict)
+    injected: bool = False  # 注入（E2E）で作られた判定。既定ではコーパス候補にしない
 
 
 def _verdict_dict(rec: EvaluationRecord) -> dict[str, JsonValue]:
@@ -67,10 +68,22 @@ class TriageQueue:
         workflow: str,
         run_id: str,
         low_confidence: float | None = None,
+        include_injected: bool = False,
     ) -> list[TriageItem]:
-        """unknown の評価記録（と、与えれば確信度が low_confidence 未満の記録）を積む。子 run も辿る。"""
+        """unknown の評価記録（と、与えれば確信度が low_confidence 未満の記録）を積む。子 run も辿る。
+
+        注入（E2E）で作られた判定は include_injected=True の時だけ積む。
+        """
         added: list[TriageItem] = []
-        self._collect(result, workflow, run_id, low_confidence, added, prefix="")
+        self._collect(
+            result,
+            workflow,
+            run_id,
+            low_confidence,
+            added,
+            prefix="",
+            include_injected=include_injected,
+        )
         self.items.extend(added)
         self._save()
         return added
@@ -84,10 +97,13 @@ class TriageQueue:
         added: list[TriageItem],
         *,
         prefix: str,
+        include_injected: bool,
     ) -> None:
         for i, rec in enumerate(result.evaluations):
             if rec.document is None:
                 continue  # 集約や評価不能は分類器の問題ではない
+            if rec.injected and not include_injected:
+                continue
             is_unknown = rec.verdict.kind is VerdictKind.UNKNOWN
             is_low = (
                 low_confidence is not None
@@ -117,6 +133,7 @@ class TriageQueue:
                     ),
                     reason="unknown" if is_unknown else "low_confidence",
                     carry_in=dict(rec.carry_in),
+                    injected=rec.injected,
                 )
             )
         for stage_id, entries in result.child_results.items():
@@ -129,6 +146,7 @@ class TriageQueue:
                         low_confidence,
                         added,
                         prefix=f"{prefix}{stage_id}[{e}][{c}]/",
+                        include_injected=include_injected,
                     )
 
     def list(self, *, status: str | None = None) -> list[TriageItem]:

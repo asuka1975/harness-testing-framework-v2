@@ -102,7 +102,7 @@ def verdict_for(target: CoverageTarget) -> Verdict:
 
 # 計画の一項目から Runner を作る。(scenario 名, outcomes の上書き, human の上書き, inject, workspace) → Runner
 PlanRunnerFactory = Callable[
-    [str, Mapping[str, list[str]], list[str] | None, Mapping[tuple[str, int], Verdict], Path],
+    [str, Mapping[str, list[str]], list[str] | None, Mapping[tuple[str, str, int], Verdict], Path],
     Runner,
 ]
 
@@ -151,9 +151,11 @@ def run_plan(
 ) -> CoverageReport:
     results: list[RunResult] = []
     for i, entry in enumerate(plan.entries):
-        inject: dict[tuple[str, int], Verdict] = {}
+        inject: dict[tuple[str, str, int], Verdict] = {}
         if entry.method == "inject":
-            inject[(entry.target.stage_id, entry.inject_entry)] = verdict_for(entry.target)
+            inject[(entry.target.workflow, entry.target.stage_id, entry.inject_entry)] = (
+                verdict_for(entry.target)
+            )
         runner = make_runner(
             entry.scenario, entry.outcomes, entry.human, inject, workspace / f"plan-{i}"
         )
@@ -165,6 +167,15 @@ def run_plan(
 # --- マルコフ合成 ---
 
 Matrix = Mapping[tuple[str, str], Mapping[str, float]]
+
+
+def _all_stages(workflow: Workflow) -> list[Stage]:
+    out: list[Stage] = []
+    for s in workflow.stages:
+        out.append(s)
+        if s.subworkflow is not None:
+            out.extend(_all_stages(s.subworkflow.child))
+    return out
 
 
 def child_run_counts(samples: Iterable[RunSample]) -> dict[str, list[int]]:
@@ -268,6 +279,13 @@ def synthesize_outcomes(
     counts = dict(child_counts or {})
     if not counts and samples is not None:
         counts = child_run_counts(samples)
+    missing = [
+        s.id for s in _all_stages(workflow) if s.subworkflow is not None and not counts.get(s.id)
+    ]
+    if missing:
+        raise ValueError(
+            f"子を持つステージ {missing} の子 run 数が無い。samples= か child_counts= で観測された分布を渡す"
+        )
     out: Counter[str] = Counter()
     for _ in range(runs):
         status, _stage, _cls = _simulate(workflow, matrix, rng, counts)
