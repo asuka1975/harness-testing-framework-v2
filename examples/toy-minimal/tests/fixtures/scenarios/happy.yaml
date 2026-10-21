@@ -5,10 +5,7 @@ outcomes:
   collect: [goal]
   draft: [goal]
   verify: [goal]
-  elaborate: [goal]
-child_outcomes:            # elaborate の進入ごとに、子の各ステージの n 回目の結果
-  - write_section: [goal]
-    check_section: [goal]
+child_runs: []             # 子 run の開始順に、各ステージの n 回目の結果。無ければ全て goal
 user: simulator
 human: []
 expect:

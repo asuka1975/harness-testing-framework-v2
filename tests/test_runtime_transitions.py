@@ -53,7 +53,9 @@ def test_all_seven_transition_kinds_observed(toy: ModuleType, tmp_path: Path) ->
     assert seen == set(TransitionKind), {"未観測": set(TransitionKind) - seen}
 
 
-def test_rollback_restores_start_snapshot_and_overlays_carry(toy: ModuleType, tmp_path: Path) -> None:
+def test_rollback_restores_start_snapshot_and_overlays_carry(
+    toy: ModuleType, tmp_path: Path
+) -> None:
     """verify → draft のロールバック後、draft の再進入時の memory は開始時のもの + carry だけ。"""
     scenario, result = run_scenario(toy, SCENARIO_DIR / "checks_failed_once.yaml", tmp_path / "ws")
     reentry = [s for s in result.start_snapshots if s.stage_id == "draft"]

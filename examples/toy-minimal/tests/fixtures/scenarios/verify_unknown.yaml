@@ -5,7 +5,7 @@ outcomes:
   collect: [goal]
   draft: [goal]
   verify: [unknown]
-child_outcomes: []
+child_runs: []
 user: simulator
 human: [abort]
 expect:

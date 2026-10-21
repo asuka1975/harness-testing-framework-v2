@@ -5,10 +5,7 @@ outcomes:
   collect: [goal]
   draft: [goal]
   verify: [checks_failed, goal]
-  elaborate: [goal]
-child_outcomes:
-  - write_section: [goal]
-    check_section: [goal]
+child_runs: []
 user: simulator
 human: []
 expect:

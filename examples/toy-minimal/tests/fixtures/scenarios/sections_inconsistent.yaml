@@ -5,12 +5,8 @@ outcomes:
   collect: [goal]
   draft: [goal]
   verify: [goal, goal]
-  elaborate: [goal, goal]
-child_outcomes:
-  - write_section: [goal]
-    check_section: [inconsistent, inconsistent]
-  - write_section: [goal]
-    check_section: [goal]
+child_runs:                # 最初の子 run だけ inconsistent を 2 回（max 1 を超えて stuck）。残りは goal
+  - check_section: [inconsistent, inconsistent]
 user: simulator
 human: []
 expect:

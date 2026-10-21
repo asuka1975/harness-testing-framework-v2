@@ -1,14 +1,12 @@
 # 台本: draft が inputs_insufficient → collect へ（フェーズ内ロールバック、carry: missing_inputs）
 name: inputs_insufficient
 claims: [主張A]
+empty_grounds_first: [主張A]   # 初回の collect は主張A の根拠を空で書く → draft が inputs_insufficient
 outcomes:
   collect: [goal]
-  draft: [inputs_insufficient, goal]
+  draft: [goal]
   verify: [goal]
-  elaborate: [goal]
-child_outcomes:
-  - write_section: [goal]
-    check_section: [goal]
+child_runs: []
 user: simulator
 human: []
 expect:

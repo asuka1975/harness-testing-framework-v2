@@ -10,7 +10,13 @@ from htf.runtime import WorkflowDefinitionError, load_workflow
 
 ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES = ROOT / "schema" / "examples"
-METRICS = ["inputs_complete", "draft_exists", "verified_ratio", "section_exists", "section_consistent"]
+METRICS = [
+    "inputs_complete",
+    "draft_exists",
+    "verified_ratio",
+    "section_exists",
+    "section_consistent",
+]
 
 
 def test_loads_positive_with_children() -> None:

@@ -21,7 +21,9 @@ def _run(toy: ModuleType, workspace: Path, *, verify: list[str], resolutions: li
     scenario = scenario.with_outcomes(verify=verify)
     workflow = load_workflow(toy.harness.WORKFLOW_PATH, metric_names=toy.harness.registry().names())
     runner = Runner(
-        workflow, toy.harness.make_bindings(scenario, human=ScriptedHuman(resolutions)), workspace=workspace
+        workflow,
+        toy.harness.make_bindings(scenario, human=ScriptedHuman(resolutions)),
+        workspace=workspace,
     )
     return runner.run()
 
@@ -41,7 +43,11 @@ def test_rollback_to_restores_target_without_consuming_max(toy: ModuleType, tmp_
         toy,
         tmp_path,
         verify=["unknown", "goal"],
-        resolutions=[RollbackTo(stage="draft", carry={"failing_checks": ["人間が指定"]}, note="設計からやり直す")],
+        resolutions=[
+            RollbackTo(
+                stage="draft", carry={"failing_checks": ["人間が指定"]}, note="設計からやり直す"
+            )
+        ],
     )
     assert result.status is RunStatus.COMPLETED
     kinds = [t.kind for t in result.trace]
@@ -68,7 +74,9 @@ def test_rollback_to_rejects_undeclared_carry(toy: ModuleType, tmp_path: Path) -
 
 
 def test_continue_as_goal_proceeds_with_human_verdict(toy: ModuleType, tmp_path: Path) -> None:
-    result = _run(toy, tmp_path, verify=["unknown"], resolutions=[ContinueAsGoal(note="分類器の誤り")])
+    result = _run(
+        toy, tmp_path, verify=["unknown"], resolutions=[ContinueAsGoal(note="分類器の誤り")]
+    )
     assert result.status is RunStatus.COMPLETED
     esc = next(t for t in result.trace if t.kind is TransitionKind.ESCALATE_UNKNOWN)
     following = result.trace[result.trace.index(esc) + 1]

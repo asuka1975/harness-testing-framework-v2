@@ -1,0 +1,34 @@
+# 契約適合テスト用の最小ワークフロー。seed が in.txt を書き、probe がそれを読んで out.txt と out/ を書く。
+workflow:
+  name: conformance
+  description: 契約適合テスト用
+  phases:
+    - id: p
+      name: P
+      description: 二つのステージ
+      goal: { qualitative: 完了, quantitative: {} }
+      stages:
+        - id: seed
+          name: Seed
+          description: in.txt を書く
+          artifacts: { writes: [in.txt], memory_in: [k_out], memory_out: [k_in] }
+          goal:
+            qualitative: in.txt がある
+            quantitative:
+              in_exists: { description: in.txt がある, equals: true }
+          end_state:
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback: []
+        - id: probe
+          name: Probe
+          description: in.txt を読み、out.txt と out/ を書く
+          artifacts: { reads: [in.txt], writes: [out.txt, out/], memory_in: [k_in], memory_out: [k_out] }
+          goal:
+            qualitative: out.txt の値が 1 である
+            quantitative:
+              probe_value: { description: out.txt の値, equals: 1 }
+          end_state:
+            - { id: bad, description: out.txt の値が 1 でない }
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback:
+            - { state: bad, stage: seed, carry: [k_out], max: 1 }

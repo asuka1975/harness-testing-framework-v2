@@ -26,10 +26,10 @@ workflow:
       stages:
         - id: collect
           name: Collect
-          description: ユーザーに質問して必要な入力を集め、inputs.json に書く
+          description: ユーザーに質問して必要な入力を集め、inputs.json と根拠ファイル（grounds/）に書く
           user_input: true
           artifacts:
-            writes: [inputs.json]
+            writes: [inputs.json, grounds/]
             memory_in: [missing_inputs]
           goal:
             qualitative: >-
@@ -47,7 +47,7 @@ workflow:
           name: Draft
           description: inputs.json から draft.md を書く
           artifacts:
-            reads: [inputs.json]
+            reads: [inputs.json, grounds/]
             writes: [draft.md]
             memory_in: [failing_checks]
             memory_out: [missing_inputs]

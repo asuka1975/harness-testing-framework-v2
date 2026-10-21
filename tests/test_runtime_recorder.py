@@ -43,10 +43,13 @@ def test_replay_reproduces_end_snapshots(toy: ModuleType, tmp_path: Path) -> Non
 def test_replay_detects_mismatch(toy: ModuleType, tmp_path: Path) -> None:
     log = tmp_path / "record.jsonl"
     _run(toy, tmp_path / "ws1", Recorder(log, mode="record"), replay=False)
-    # 記録と違う台本（別の主張）で再生すると、呼び出しの照合が外れる
-    scenario = toy.harness.load_scenario(SCENARIO).with_claims(["別の主張"])
+    # 再生では入力（ユーザー回答・LLM・分類器）が記録から来るので、台本の入力を変えても要求は変わらない。
+    # 本体の振る舞い（台本の結果）を変えると成果物が変わり、分類器への要求（状態文書）が記録と外れる
+    scenario = toy.harness.load_scenario(SCENARIO).with_outcomes(verify=["checks_failed"])
     workflow = load_workflow(toy.harness.WORKFLOW_PATH, metric_names=toy.harness.registry().names())
     bindings = toy.harness.make_bindings(scenario, human=ScriptedHuman([]), replay=True)
-    runner = Runner(workflow, bindings, workspace=tmp_path / "ws3", recorder=Recorder(log, mode="replay"))
+    runner = Runner(
+        workflow, bindings, workspace=tmp_path / "ws3", recorder=Recorder(log, mode="replay")
+    )
     with pytest.raises(ReplayMismatch):
         runner.run()
