@@ -1,0 +1,14 @@
+# 台本: verify が一部の主張を仮定として理由つきで記録する（G3）。5 主張のうち 1 つが仮定 → 検証済み 0.8 → goal
+name: goal_assumed
+claims: [主張A, 主張B, 主張C, 主張D, 主張E]
+outcomes:
+  collect: [goal]
+  draft: [goal]
+  verify: [goal_assumed]
+child_runs: []
+user: simulator
+human: []
+expect:
+  status: completed
+  transitions: [next, next, next, subworkflow_aggregate, next]
+  gates: ["prepare:passed", "verify:passed"]

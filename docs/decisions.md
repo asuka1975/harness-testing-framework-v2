@@ -549,6 +549,14 @@ ADR-001〜010 の決定を実装に落とす時に、計画書にも ADR にも�
 | 12.10 | ContinueAsGoal の後 | goal（decided_by: human）として通常の遷移（フェーズ最終ならゲート評価も）を行う | ゲートを飛ばす |
 | 12.11 | 記録再生の同一性 | `snapshot_digest` は files の内容と memory だけ。store のパス、ordinal、taken_at は含めない。再生時の不一致は `ReplayMismatch` | — |
 | 12.12 | 子を持つステージの遷移記録 | `subworkflow_aggregate` の記録の直後に、その判定による遷移（next / rollback / escalate）を別の記録として残す | 一つの記録に畳む |
+| 12.17 | 子 run の作業ディレクトリの掃除 | 子 run を起動する前に `subworkflow.workspace` 配下を空にする。each のリストが再進入で短くなっても前回の残骸が親の成果物と指標に混ざらない（検証役 B2） | 子 run ごとの `<i>/` だけ消す |
+| 12.18 | 記録は試行単位で確定 | ステージ本体の一回の実行（子 run を含む）を試行とし、その間の LLM・分類器・ユーザー回答の記録は確定を待つ。中断（WaitingForUser）や例外で終わった試行の記録は破棄。resume 由来の回答も本体が受け取った時点で記録されるので、回答は一度ずつ残り、再生では回答が記録から来て中断しない（検証役 B1） | 試行の区切りを外す（中断を含む run は再生不能に戻る） |
+| 12.19 | ゲート不成立の escalate と ContinueAsGoal | 人間が `ContinueAsGoal` を返したら、ゲートを人間が通したものとして記録（`GateEvent(passed, note="human")`）し、再評価せず次へ（検証役 B3） | 再評価する（人間が抜けられない） |
+| 12.20 | 最上位で HumanDecider 無し | 最上位の Runner で escalate が起きたのに `human` が無ければ `ContractViolation`。子 run は内部フラグで区別する（検証役 B4） | `escalated` を返す |
+| 12.21 | 未消費の記録 | 再生の終わり（completed / aborted）に未消費の記録が残っていれば `ReplayMismatch`（検証役 B6） | 検出しない |
+| 12.22 | 子 run の観測 | `RunResult.child_results` に、子を持つステージの進入ごと・子 run ごとの `RunResult`（子内の遷移とスナップショット）を保持する。契約の `ChildOutcome` は変えない（検証役 B9） | — |
+| 12.23 | 分類器の閾値の既定 | `Runner(threshold=0.5)` は仮置き。較正結果（ADR-006 以降）で決める（検証役 B8） | — |
+| 12.24 | `.htf/` への本体の書き込み | 検出しない。本体が `.htf/` に触った時の結果は未定義（検証役 B7） | 検出する |
 
 ### 契約への提案（未実装。ゲートで決める）
 
@@ -558,10 +566,12 @@ ADR-001〜010 の決定を実装に落とす時に、計画書にも ADR にも�
 | 12.14 | 契約の三操作に「開始時スナップショットの取得」`start(stage, memory) -> Snapshot` を加える（CONTRACT 第 2 節） | 契約適合テストは最初のスナップショットをランタイムから得る必要があり、`htf.contract.conformance.ConformanceRuntime` は Runtime + start を要求している。今の CONTRACT は run の入力の出どころを書いていない |
 | 12.15 | `Escalation.cause` に `phase_gate_failed` を加える | 今はフェーズゲート不成立を `cause: unknown` + 理由文字列で表している |
 | 12.16 | 子ワークフローのステージの `user_input` を検査器で禁止する（12.8 の静的な前倒し） | 実行時の `ContractViolation` より早く分かる |
+| 12.25 | CONTRACT 第 8 節を「契約適合テストの対象は三操作 + start。制御ループ（7 種の遷移、4 解決、記録再生、集約）は参照ランタイムの振る舞いとして決定論テストで確かめる」に改訂し、定義は toy-minimal でなく同梱の conformance.yaml と書く | 検証役 B5: 現在のスイートは第 8 節の 6 項目中 3 項目しか覆わず、adopting.md 3.8 と合わせて自前ランタイムの判定範囲が曖昧 |
+| 12.26 | CONTRACT 第 7 節 1 に「子 run を起動する前に workspace 配下を空にする」を明記 | 12.17 の契約への反映 |
 
 ### 推奨
 
-12.1〜12.12 を承認。12.13〜12.16 は v0.1 の前に実装してよい小さな変更なので、承認されれば F3 の中で行う。
+12.1〜12.12 と 12.17〜12.24 を承認。12.13〜12.16 と 12.25〜12.26 は v0.1 の前に行ってよい小さな変更なので、承認されれば v0.1 公開前に行う。
 
 ### 決定
 

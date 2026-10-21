@@ -81,6 +81,7 @@ class TransitionRecord:
 class GateEvent:
     phase_id: str
     event: str  # passed | failed | invalidated
+    note: str = ""  # "human": 不成立のゲートを人間が ContinueAsGoal で通した
 
 
 @dataclass(frozen=True)
@@ -104,6 +105,8 @@ class RunResult:
     edge_counts: dict[tuple[str, str], int]
     child_outcomes: dict[str, list[list[ChildOutcome]]] = field(default_factory=dict)
     child_outcome: ChildOutcome | None = None  # 子 run として終わった時の、この run の終わり方
+    # 子を持つステージ id → 進入ごと → 子 run ごとの RunResult（子の内部の遷移とスナップショット）
+    child_results: dict[str, list[list[RunResult]]] = field(default_factory=dict)
 
 
 class _QueuedUserIO(UserIO):
@@ -150,13 +153,22 @@ class ReferenceRuntime:
         if recorder is not None:
             self.classifier: Classifier | None = RecordedClassifier(bindings.classifier, recorder)
             self.llm: LLMClient | None = RecordedLLM(bindings.llm, recorder)
-            self.user: UserIO | None = RecordedUserIO(bindings.user, recorder)
         else:
             self.classifier = bindings.classifier
             self.llm = bindings.llm
-            self.user = bindings.user
         self.answers: dict[str, list[JsonValue]] = defaultdict(list)
         self.child_outcomes: dict[str, list[list[ChildOutcome]]] = defaultdict(list)
+        self.child_results: dict[str, list[list[RunResult]]] = defaultdict(list)
+
+    def _user_for(self, stage: Stage) -> UserIO | None:
+        """累積した回答列 → 束縛された UserIO の順に答える。recorder は本体が受け取った回答を記録する
+        （resume 由来の回答も含む。中断した試行の記録は破棄されるので、回答は一度ずつ残る）。"""
+        if not stage.user_input:
+            return None
+        queued = _QueuedUserIO(self.answers[stage.id], self.bindings.user)
+        if self.recorder is not None:
+            return RecordedUserIO(queued, self.recorder)
+        return queued
 
     # --- 開始時スナップショット ---
 
@@ -167,6 +179,20 @@ class ReferenceRuntime:
     # --- 三操作 ---
 
     def run(self, stage_id: str, snapshot: Snapshot) -> Snapshot:
+        """一回の試行。中断（WaitingForUser）や例外で終わった試行の記録は破棄する。"""
+        if self.recorder is not None:
+            self.recorder.begin_attempt()
+        try:
+            end = self._run_attempt(stage_id, snapshot)
+        except BaseException:
+            if self.recorder is not None:
+                self.recorder.discard_attempt()
+            raise
+        if self.recorder is not None:
+            self.recorder.commit_attempt()
+        return end
+
+    def _run_attempt(self, stage_id: str, snapshot: Snapshot) -> Snapshot:
         stage = self.workflow.stage(stage_id)
         memory: dict[str, JsonValue] = dict(snapshot.memory)
         if stage.subworkflow is not None:
@@ -182,7 +208,7 @@ class ReferenceRuntime:
                 stage,
                 self.workspace,
                 memory,
-                user=_QueuedUserIO(self.answers[stage_id], self.user) if stage.user_input else None,
+                user=self._user_for(stage),
                 llm=self.llm,
             )
             body.run(ctx)
@@ -251,11 +277,15 @@ class ReferenceRuntime:
             llm=self.bindings.llm,
             human=None,
         )
+        # 前回の進入の子 run の作業ディレクトリを残さない（each のリストが短くなっても残骸が成果物に混ざらない）
+        parent_dir = self.workspace / sub.workspace
+        if parent_dir.exists():
+            shutil.rmtree(parent_dir)
+        parent_dir.mkdir(parents=True)
         outcomes: list[ChildOutcome] = []
+        results: list[RunResult] = []
         for i, item in enumerate(items):
-            child_ws = self.workspace / sub.workspace / str(i)
-            if child_ws.exists():
-                shutil.rmtree(child_ws)
+            child_ws = parent_dir / str(i)
             initial = {sub.item_as: item, **{k: memory[k] for k in sub.pass_}}
             child = Runner(
                 sub.child,
@@ -265,6 +295,7 @@ class ReferenceRuntime:
                 recorder=self.recorder,
                 strict_writes=self.strict_writes,
                 initial_memory=initial,
+                child=True,
             )
             try:
                 result = child.run()
@@ -272,6 +303,7 @@ class ReferenceRuntime:
                 raise ContractViolation(
                     f"子ワークフロー {sub.child.name!r} のユーザー入出力は v1.0 では未対応（質問: {w.question!r}）"
                 ) from w
+            results.append(result)
             if result.status is RunStatus.COMPLETED:
                 outcomes.append(ChildOutcome(index=i, kind="goal"))
             elif result.status is RunStatus.ESCALATED and result.child_outcome is not None:
@@ -290,6 +322,7 @@ class ReferenceRuntime:
                 )
             else:
                 raise ContractViolation(f"子 run {i} が想定外の状態で終わった: {result.status}")
+        self.child_results[stage.id].append(results)
         return outcomes
 
 
@@ -304,8 +337,10 @@ class Runner:
         recorder: Recorder | None = None,
         strict_writes: bool = True,
         initial_memory: Mapping[str, JsonValue] | None = None,
+        child: bool = False,
     ) -> None:
         self.workflow = workflow
+        self._child = child  # 子 run: escalate は人間へ行かず ChildOutcome になる
         self.rt = ReferenceRuntime(
             workflow,
             bindings,
@@ -375,6 +410,12 @@ class Runner:
             self._transition(stage, end, verdict)
         if self._status is None:
             self._status = RunStatus.COMPLETED
+        if (
+            not self._child
+            and self.rt.recorder is not None
+            and self._status in (RunStatus.COMPLETED, RunStatus.ABORTED)
+        ):
+            self.rt.recorder.finish()
         return self._result()
 
     def _reset_to_start(self, stage: Stage) -> None:
@@ -402,15 +443,9 @@ class Runner:
                             TransitionKind.ESCALATE_UNKNOWN, stage.id, None, gate_verdict
                         )
                     )
-                    self._escalate(stage, end, gate_verdict, cause="unknown")
+                    self._escalate(stage, end, gate_verdict, cause="unknown", gate_phase=phase)
                     return
-            next_id = (
-                self.workflow.stages[self.pos + 1].id
-                if self.pos + 1 < len(self.workflow.stages)
-                else None
-            )
-            self.trace.append(TransitionRecord(TransitionKind.NEXT, stage.id, next_id, verdict))
-            self.pos += 1
+            self._advance(stage, verdict)
             return
 
         if verdict.kind is VerdictKind.END_STATE:
@@ -443,6 +478,15 @@ class Runner:
         )
         cause = "child_unresolved" if verdict.decided_by == "aggregate" else "unknown"
         self._escalate(stage, end, verdict, cause=cause)
+
+    def _advance(self, stage: Stage, verdict: Verdict) -> None:
+        next_id = (
+            self.workflow.stages[self.pos + 1].id
+            if self.pos + 1 < len(self.workflow.stages)
+            else None
+        )
+        self.trace.append(TransitionRecord(TransitionKind.NEXT, stage.id, next_id, verdict))
+        self.pos += 1
 
     def _rollback(
         self,
@@ -485,10 +529,11 @@ class Runner:
         *,
         cause: str,
         edge: tuple[str, str] | None = None,
+        gate_phase: Phase | None = None,
     ) -> None:
         escalation = Escalation(stage.id, verdict, cause, end, edge)  # type: ignore[arg-type]
         self.escalations.append(escalation)
-        if self.human is None:
+        if self._child:
             # 子 run: 人間へ行かず、親の集約へ（CONTRACT 第 7 節 2）
             if cause == "max_exceeded":
                 self._child_outcome = ChildOutcome(
@@ -500,6 +545,10 @@ class Runner:
                 )
             self._status = RunStatus.ESCALATED
             return
+        if self.human is None:
+            raise ContractViolation(
+                f"ステージ {stage.id!r} で escalate（{cause}）が起きたが HumanDecider が束縛されていない"
+            )
         resolution = self.human.resolve(escalation)
         self.resolutions.append(resolution)
         match resolution:
@@ -514,9 +563,15 @@ class Runner:
                     )
                 self._rollback(stage, target_id, dict(carry), verdict, note="human")
             case ContinueAsGoal(note=note):
-                self._transition(
-                    stage, end, Verdict(VerdictKind.GOAL, decided_by="human", reason=note)
-                )
+                human_verdict = Verdict(VerdictKind.GOAL, decided_by="human", reason=note)
+                if gate_phase is not None:
+                    # ゲート不成立由来の escalate: 人間がゲートを通したものとして次へ（再評価しない）
+                    self.gates.append(GateEvent(gate_phase.id, "passed", note="human"))
+                    if gate_phase.id not in self.gates_passed:
+                        self.gates_passed.append(gate_phase.id)
+                    self._advance(stage, human_verdict)
+                else:
+                    self._transition(stage, end, human_verdict)
             case Abort():
                 self._status = RunStatus.ABORTED
             case _:
@@ -537,4 +592,5 @@ class Runner:
             edge_counts={k: v for k, v in self.counts.items() if v},
             child_outcomes={k: list(v) for k, v in self.rt.child_outcomes.items()},
             child_outcome=self._child_outcome,
+            child_results={k: list(v) for k, v in self.rt.child_results.items()},
         )

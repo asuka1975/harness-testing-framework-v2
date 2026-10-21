@@ -134,7 +134,12 @@ class Verify:
         claims = [line[3:] for line in draft.splitlines() if line.startswith("## ")]
         outcome = self.cursor.next("verify")
         verified, assumed, failed, missing = list(claims), [], [], []
-        if outcome == "checks_failed":
+        if outcome == "goal_assumed":
+            # 根拠はあるが検証手段が無い主張を、理由つきで仮定として記録する（G3）。印は goal
+            outcome = "goal"
+            assumed = [{"claim": c, "reason": "根拠はあるが検証手段が無い"} for c in claims[:1]]
+            verified = claims[1:]
+        elif outcome == "checks_failed":
             failed, verified = claims[:1], claims[1:]
         elif outcome == "inputs_missing":
             missing, verified = [f"{c} の外部データ" for c in claims[:1]], claims[1:]

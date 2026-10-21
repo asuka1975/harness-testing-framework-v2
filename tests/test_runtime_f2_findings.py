@@ -88,7 +88,8 @@ class _Fan:
 
 class _W:
     def run(self, ctx: StageContext) -> None:
-        (ctx.workspace / "w.txt").write_text(str(ctx.memory["item"]))
+        # 印（outcome）を成果物に残す。無いと MarkerClassifier は unknown を返す
+        (ctx.workspace / "w.txt").write_text(f"item: {ctx.memory['item']}\noutcome: goal\n")
 
 
 class _Check:

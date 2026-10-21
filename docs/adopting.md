@@ -62,6 +62,8 @@ uv run python -m htf.testing.spec path/to/workflow.yaml --metrics-module your_pk
 `StageBody.run(ctx)` を実装する。`ctx` は `StageContext`。
 
 ```python
+from htf.contract import LLMRequest, StageContext
+
 class Draft:
     def run(self, ctx: StageContext) -> None:
         inputs = json.loads((ctx.workspace / "inputs.json").read_text())      # reads
@@ -72,19 +74,30 @@ class Draft:
 
 - 読めるのは `ctx.memory`（`memory_in` の鍵だけ）と作業ディレクトリ。書けるのは `writes` の範囲と `memory_out` の鍵だけ。範囲外は `ContractViolation`（参照ランタイムは本体の前後で作業ディレクトリを比較する。`.htf/` は対象外）
 - 本体は途中状態を持たない。中断からの再開は開始時スナップショットからの再実行で行われる
-- 再進入（ロールバックで戻ってきた）は carry の鍵が `ctx.memory` にあるかで分かる。初回は無い
-- `subworkflow` を持つステージの本体は任意。束縛すれば子 run が全て終わった後に走る（子の成果物をまとめる等）
+- 再進入（ロールバックで戻ってきた）は carry の鍵が `ctx.memory` にあるかで分かる。初回は無い。人間の `Rerun` や carry 無しの `RollbackTo` による再実行は初回と区別できない（区別が要るなら成果物に痕跡を残す）
+- 復元は戻り先の `writes` の範囲外に触れないので、再進入した本体から後段の成果物（前回の実行が残したもの）が見える。`reads` は検査されない。後段の成果物に依存する本体を書かない
+- `subworkflow` を持つステージの本体は任意。束縛すれば子 run が全て終わった後に走る。子の成果物（`workspace` 配下）をまとめて `memory_out` に出す（carry に使う）のは本体の役目。子 run の作業ディレクトリはステージに入るたびに空にされる
+- 作業ディレクトリ配下の `.htf/` は runner のメタデータ。本体が読み書きしても検出されず、結果は未定義
 
 ### 3.5 ユーザー入出力
 
-`UserIO.ask(question, schema=None)` を実装する。その場で答えられない実装は `WaitingForUser(question, schema)` を投げる。runner は中断状態で `RunResult(status=SUSPENDED, pending=...)` を返し、`runner.resume(answer)` で回答を累積して開始時スナップショットから再実行する。同じ質問には累積した回答が順に返る。
+`UserIO.ask(question, schema=None)` を実装する。その場で答えられない実装は `WaitingForUser(question, schema)` を投げる。runner は中断状態で `RunResult(status=SUSPENDED, pending=...)` を返し、`runner.resume(answer)` で回答を累積して開始時スナップショットから再実行する。累積した回答は **ask の順序**で返る（質問文は照合しない）ので、本体は毎回同じ順で質問する。再開できるのは `Runner` オブジェクトが生きている間だけ（中断状態の永続化は未定。CONTRACT 第 9 節）。
+
+```python
+result = runner.run()
+while result.status is RunStatus.SUSPENDED:
+    answer = ask_the_human(result.pending.question)   # 別のプロセスや UI で
+    result = runner.resume(answer)
+```
 
 テストでは `htf.testing.harness.DeferringUserIO`（常に中断）、`QueueUserIO`（回答列）、またはハーネス自身のシミュレータ（`examples/toy-minimal/user/`）を束縛する。
 
 ### 3.6 LLM クライアントと分類器
 
 - `LLMClient.complete(request)`。本体は `ctx.llm` 経由でしか呼ばない。recorder を付けると記録され、再生で LLM 無しに同じ実行が得られる
-- `Classifier.classify(document, options)`。`document` は reads ∪ writes ∪ memory_in からの投影、`options` は goal と end_state の記述。実 LLM の分類器は ADR-006 の後で用意する。htf のテストは LLM を呼ばず、`htf.testing.harness.MarkerClassifier`（成果物の `outcome` の印を読む）を使う
+- `Classifier.classify(document, options)`。`document` は reads ∪ writes ∪ memory_in からの投影、`options` は goal と end_state の記述（`id` は `goal` と各 end_state id。unknown を含む）。確信度が閾値未満なら unknown。閾値は `Runner(threshold=...)` で、既定の 0.5 は仮置き（較正で決める。ADR-012 12.23）。実 LLM の分類器は ADR-006 の後で用意する
+- 投影（状態文書）の形式: `# stage: <id>` / `## memory_in`（鍵ごとに JSON）/ `## reads` / `## writes`（パスごとに `### <path>` と内容。ディレクトリは配下の全ファイル。1 ファイル 4000 文字で切る）。`htf.runtime.project(stage, snapshot, workspace)` で同じ文書が得られる
+- htf のテストは LLM を呼ばない。偽ステージ本体が成果物に印（`"outcome": "<id>"` か行 `outcome: <id>`）を書き、`htf.testing.harness.MarkerClassifier` が状態文書の `## writes` 節からその印を読んで選択肢として返す。`low_confidence` の印は閾値未満（unknown の経路）、選択肢に無い印は unknown
 
 ### 3.7 束縛して実行する
 
@@ -97,14 +110,17 @@ bindings = Bindings(
     registry=registry, classifier=classifier, user=user_io, llm=llm_client, human=decider,
 )
 result = Runner(workflow, bindings, workspace=Path("ws")).run()
-result.status      # completed | aborted | suspended
-result.trace       # TransitionRecord の列（7 種の遷移）
-result.gates       # フェーズゲートの passed / failed / invalidated
+result.status         # completed | aborted | suspended
+result.trace          # TransitionRecord の列（7 種の遷移）
+result.gates          # フェーズゲートの passed / failed / invalidated
+result.child_results  # 子を持つステージ id → 進入ごと → 子 run ごとの RunResult
 ```
 
-- `human` は `HumanDecider`（escalate を受けて `Rerun` / `RollbackTo` / `ContinueAsGoal` / `Abort` のどれかを返す）。テストでは `ScriptedHuman`
-- 記録再生: `Runner(..., recorder=Recorder("run.jsonl", mode="record"))` で記録し、`mode="replay"` で再生する。再生時は `llm` / `classifier` / `user` を `None` にしてよい
-- 作業ディレクトリ配下の `.htf/` は runner のメタデータ（スナップショットの store）で、本体が触ってはいけない
+- `bodies` の鍵は (workflow 名, stage id)。親子で `workflow.name` が同じだと衝突する（検査器は未対応。ADR-012 12.13）
+- `human` は `HumanDecider`（escalate を受けて `Rerun` / `RollbackTo` / `ContinueAsGoal` / `Abort` のどれかを返す）。最上位の Runner で escalate が起きたのに `human` が無ければ `ContractViolation`。テストでは `ScriptedHuman`
+- 記録再生: `Runner(..., recorder=Recorder("run.jsonl", mode="record"))` で記録し、`mode="replay"` で再生する。再生時は `llm` / `classifier` / `user` を `None` にしてよい。中断再開を含む run も記録再生できる（回答は本体が受け取った時点で一度ずつ記録され、再生では記録から来るので中断しない）。再生の終わりに未消費の記録が残っていれば `ReplayMismatch`
+- `registry.names()` が指標名の正本。整合性検査を CI で import 無しに回すためにマニフェスト（`{"metrics": [...]}`）を置く場合は、両者の一致をテストで確かめる（toy-minimal の `metrics/__init__.py`）
+- ハーネスを `examples/` のようなハイフン名のディレクトリに置く場合、テストからは `htf.testing.harness.load_example_package(root, "pkg_name")` でパッケージとして読む（toy-minimal の `tests/conftest.py`）
 
 ### 3.8 契約適合テストを通す
 
@@ -120,11 +136,12 @@ class TestMyRuntime(ConformanceSuite):
         return factory
 ```
 
-参照ランタイムを組み込むだけでも継承して通す（組み込み方が契約を壊していないことの確認）。自前のランタイムを持つなら、契約を満たすかはこのテストでのみ判定する。
+参照ランタイムを組み込むだけでも継承して通す（組み込み方が契約を壊していないことの確認）。スイートが判定するのは契約の三操作（run / evaluate / restore + overlay）と開始時スナップショットの取得（start）で、定義は同梱の `conformance.yaml`。制御ループの振る舞い（7 種の遷移、escalate の 4 解決、記録再生、子の集約）は参照ランタイムのもので、自前のランタイムを持つなら 3.9 の決定論テストを自前のランタイムに対しても書く。
 
 ### 3.9 決定論テストを書く
 
 - 偽ステージ本体を台本で制御し、各ステージの各 end_state と、7 種の遷移（next、フェーズ内 / 境界越えロールバック、unknown / max 超過の escalate、中断と再開、子の集約）を少なくとも一度は踏む。台本は本体コードに埋めず、フィクスチャ（YAML）に置く
+- 偽本体の設計指針: (1) 本体は宣言どおりに成果物を書き、「LLM が決めるはずの結果」だけを台本から取る。指標は成果物から本物の値を計算する。(2) 結果は成果物の中に印（3.6）として残し、偽分類器がそれを読む。(3) 台本は「ステージ id → n 回目の進入の結果」の列で、足りなければ最後を繰り返す等の規則を台本のそばに書く（`examples/toy-minimal/tests/fixtures/scenarios/README.md`）。(4) 子 run の台本は子 run の開始順に並べ、子 run の始まりを本体が見分けられる根拠（carry の有無など）を明記する
 - `htf.testing.harness.observed_kinds(result.trace)` で観測された遷移種を集める
 - escalate の 4 つの解決を `ScriptedHuman` で踏む
 - 記録 → 再生で `snapshot_digest` が一致することを確かめる
@@ -156,7 +173,9 @@ subworkflow:
 - スナップショットはステージの開始時と終了時に `writes` の範囲と memory を保存する。ロールバックは戻り先の開始時スナップショットを復元し、carry の鍵だけを重ねる。復元は戻り先の `writes` の範囲外に触れない（後段の成果物は残る。次に上書きされる）
 - 辺 (ステージ, end_state) の通過回数は run 全体で数え、`max` を超えたら escalate。人間の `RollbackTo` は数えない
 - フェーズの最終ステージが goal になった時だけフェーズの `quantitative` を評価する（フェーズの全ステージの `writes` の和を一つのスナップショットにする）。不成立なら unknown。前のフェーズへ戻ると通過記録は無効化され、再通過時に再評価する
-- `writes` 外への書き込み検出は `Runner(..., strict_writes=False)` で切れる（既定は有効）。`reads` は検査しない
+- `writes` 外への書き込み検出は `Runner(..., strict_writes=False)` で切れる（既定は有効）。`reads` は検査しない。`.htf/` は検出の対象外
+- 子を持つステージに入るたびに `subworkflow.workspace` 配下を空にしてから子 run を起動する。前回の進入の子 run の残骸は残らない
+- フェーズゲート不成立の escalate に人間が `ContinueAsGoal` を返すと、ゲートを人間が通したものとして記録（`GateEvent(passed, note="human")`）し、再評価せずに次へ進む
 
 ## 6. 迷ったら
 
