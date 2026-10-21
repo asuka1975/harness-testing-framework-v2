@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import random
 from collections import Counter
 from collections.abc import Mapping, Sequence
 
@@ -23,7 +24,7 @@ class ScriptCursor:
         self._outcomes = {k: list(v) for k, v in outcomes.items()}
         self._entries: Counter[str] = Counter()
 
-    def next(self, stage_id: str) -> str:
+    def next(self, stage_id: str, **_: object) -> str:
         seq = self._outcomes.get(stage_id) or [GOAL]
         i = self._entries[stage_id]
         self._entries[stage_id] += 1
@@ -43,8 +44,57 @@ class ChildScriptCursor:
         self._started += 1
         self._current = ScriptCursor(script)
 
-    def next(self, stage_id: str) -> str:
+    def next(self, stage_id: str, *, run_start: bool = False, **_: object) -> str:
+        if run_start:
+            self.begin_run()
         return self._current.next(stage_id)
+
+
+class StochasticSource:
+    """台本の代わりに、種つきの既知の分布から結果を引く（F3 の確率的偽本体）。
+
+    進入回数（first / reentry）はこの供給元が (stage, claim) ごとに数える。規則は runtime の進入回数と同じ
+    （中断からの再開は数えない。子 run の始まり run_start でその主張の計数を消す）。
+    split があれば、split.stage の再進入で奇数番目の主張の分布を差し替える（クラス内で代表ごとに下流が分かれる）。
+    """
+
+    def __init__(
+        self,
+        distributions: Mapping[str, Mapping[str, Mapping[str, float]]],
+        claims: Sequence[str],
+        *,
+        seed: int,
+        split: Mapping[str, object] | None = None,
+    ) -> None:
+        self.distributions = {
+            s: {k: dict(d) for k, d in kinds.items()} for s, kinds in distributions.items()
+        }
+        self.claims = list(claims)
+        self.split = dict(split) if split else None
+        self.rng = random.Random(seed)
+        self._entries: Counter[tuple[str, str | None]] = Counter()
+
+    def next(
+        self, stage_id: str, *, claim: str | None = None, run_start: bool = False, **_: object
+    ) -> str:
+        if run_start:
+            for key in [k for k in self._entries if k[1] == claim]:
+                del self._entries[key]
+        key = (stage_id, claim)
+        self._entries[key] += 1
+        kind = "first" if self._entries[key] == 1 else "reentry"
+        kinds = self.distributions[stage_id]
+        dist = kinds.get(kind) or kinds["first"]
+        if (
+            self.split
+            and stage_id == self.split["stage"]
+            and kind == "reentry"
+            and claim is not None
+            and self.claims.index(claim) % 2 == 1
+        ):
+            dist = dict(self.split["odd_claims_reentry"])  # type: ignore[arg-type]
+        classes = list(dist)
+        return self.rng.choices(classes, [dist[c] for c in classes])[0]
 
 
 # --- 親 workflow.yaml ---
@@ -187,10 +237,10 @@ class WriteSection:
         self.cursor = cursor
 
     def run(self, ctx: StageContext) -> None:
-        if "inconsistencies" not in ctx.memory:
-            self.cursor.begin_run()
-        outcome = self.cursor.next("write_section")
         claim = ctx.memory["claim"]
+        outcome = self.cursor.next(
+            "write_section", claim=claim, run_start="inconsistencies" not in ctx.memory
+        )
         fixes = ctx.memory.get("inconsistencies")
         lines = [f"# {claim}", "", f"{claim} について述べる。"]
         if fixes:
@@ -204,8 +254,10 @@ class CheckSection:
         self.cursor = cursor
 
     def run(self, ctx: StageContext) -> None:
-        (ctx.workspace / "section.md").read_text(encoding="utf-8")
-        outcome = self.cursor.next("check_section")
+        section = (ctx.workspace / "section.md").read_text(encoding="utf-8")
+        outcome = self.cursor.next(
+            "check_section", claim=ctx.memory["claim"], reentry="修正:" in section
+        )
         consistent = outcome == GOAL
         issues = [] if consistent else [f"{ctx.memory['claim']} と整合しない文がある"]
         (ctx.workspace / "section-check.json").write_text(

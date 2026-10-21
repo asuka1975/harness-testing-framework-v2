@@ -35,17 +35,22 @@ def _corpus(n: int, seed: int) -> list[CorpusItem]:
     rng = random.Random(seed)
     labels = list(PRIORS)
     weights = [PRIORS[k] for k in labels]
-    return [
-        CorpusItem(
-            id=f"item-{i}",
-            workflow="synthetic",
-            stage="verify",
-            document=f"# stage: verify\n## writes\n### report.json\n{{\"n\": {i}}}\n",
-            options=OPTIONS,
-            label=rng.choices(labels, weights)[0],
+    items = []
+    for i in range(n):
+        label = rng.choices(labels, weights)[0]
+        items.append(
+            CorpusItem(
+                id=f"item-{i}",
+                workflow="synthetic",
+                stage="verify",
+                document=(
+                    f'# stage: verify\ntruth: {label}\n## writes\n### report.json\n{{"n": {i}}}\n'
+                ),
+                options=OPTIONS,
+                label=label,
+            )
         )
-        for i in range(n)
-    ]
+    return items
 
 
 def test_reproduces_known_kappa_and_ece(tmp_path: Path) -> None:
@@ -84,6 +89,8 @@ def test_wrong_expected_kappa_is_rejected() -> None:
 
 def test_unstable_classifier_has_low_rerun_agreement() -> None:
     corpus = _corpus(500, seed=9)
-    unstable = ConfusionClassifier(CONFUSION, seed=None, confidence=0.9)  # 種なし = 呼ぶたびに引き直す
+    unstable = ConfusionClassifier(
+        CONFUSION, seed=None, confidence=0.9
+    )  # 種なし = 呼ぶたびに引き直す
     report = verify_oracle(unstable, corpus, bins=5, reruns=3)
     assert report.rerun_agreement < 0.95

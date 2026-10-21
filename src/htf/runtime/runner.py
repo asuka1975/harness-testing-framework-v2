@@ -9,6 +9,7 @@ Runner はワークフロー定義だけから遷移を駆動する（CONTRACT �
 
 from __future__ import annotations
 
+import dataclasses
 import shutil
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
@@ -20,7 +21,9 @@ from htf.contract import (
     Abort,
     Carry,
     ChildOutcome,
+    Classification,
     Classifier,
+    ClassOption,
     ContinueAsGoal,
     ContractViolation,
     Escalation,
@@ -43,7 +46,7 @@ from htf.contract import (
 from .checkpoint import META_DIR, SnapshotStore, fingerprint, out_of_scope_changes
 from .context import RunContext
 from .model import UNKNOWN, MetricError, Phase, Stage, Workflow
-from .oracle import aggregate_children, evaluate_metrics, evaluate_stage
+from .oracle import aggregate_children, class_options, evaluate_metrics, evaluate_stage_detailed
 from .recorder import RecordedClassifier, RecordedLLM, RecordedUserIO, Recorder
 
 DEFAULT_THRESHOLD = 0.5
@@ -85,6 +88,40 @@ class GateEvent:
 
 
 @dataclass(frozen=True)
+class EvaluationRecord:
+    """評価のたびに runtime が残す記録。トリアージ、コーパス、分布の集計はここから作る。
+
+    document / classification は分類器を呼んだ時だけ（子を持つステージの集約や評価不能では None）。
+    carry_in は進入時に受け取った carry、carry_out は end_state の時に戻り先へ運ぶ carry（代表の鍵の既定）。
+    """
+
+    workflow: str
+    stage_id: str
+    entry: int  # この run でのそのステージの進入回数（1 から。中断からの再開は数えない）
+    verdict: Verdict
+    document: str | None
+    options: list[ClassOption]
+    classification: Classification | None
+    carry_in: dict[str, JsonValue]
+    carry_out: dict[str, JsonValue]
+    injected: bool = False
+
+    @property
+    def cls(self) -> str:
+        """分類の名前: goal / <end_state id> / unknown。"""
+        if self.verdict.kind is VerdictKind.GOAL:
+            return "goal"
+        if self.verdict.kind is VerdictKind.END_STATE:
+            assert self.verdict.state is not None
+            return self.verdict.state
+        return UNKNOWN
+
+    @property
+    def entry_kind(self) -> str:
+        return "first" if self.entry == 1 else "reentry"
+
+
+@dataclass(frozen=True)
 class PendingQuestion:
     stage_id: str
     question: str
@@ -107,6 +144,7 @@ class RunResult:
     child_outcome: ChildOutcome | None = None  # 子 run として終わった時の、この run の終わり方
     # 子を持つステージ id → 進入ごと → 子 run ごとの RunResult（子の内部の遷移とスナップショット）
     child_results: dict[str, list[list[RunResult]]] = field(default_factory=dict)
+    evaluations: list[EvaluationRecord] = field(default_factory=list)
 
 
 class _QueuedUserIO(UserIO):
@@ -159,6 +197,14 @@ class ReferenceRuntime:
         self.answers: dict[str, list[JsonValue]] = defaultdict(list)
         self.child_outcomes: dict[str, list[list[ChildOutcome]]] = defaultdict(list)
         self.child_results: dict[str, list[list[RunResult]]] = defaultdict(list)
+        self.evaluations: list[EvaluationRecord] = []
+        self.entry_counts: Counter[str] = Counter()  # Runner が進入のたびに増やす
+        self.inject: dict[tuple[str, int], Verdict] = {}  # Runner から渡される。子 run にも引き継ぐ
+        # ステージ id → そのステージへ carry で運ばれうる鍵（戻り先として参照する rollback の carry の和）
+        self._carry_in_keys: dict[str, set[str]] = defaultdict(set)
+        for s in workflow.stages:
+            for rb in s.rollback:
+                self._carry_in_keys[rb.stage].update(rb.carry)
 
     def _user_for(self, stage: Stage) -> UserIO | None:
         """累積した回答列 → 束縛された UserIO の順に答える。recorder は本体が受け取った回答を記録する
@@ -223,18 +269,63 @@ class ReferenceRuntime:
 
     def evaluate(self, stage_id: str, snapshot: Snapshot) -> Verdict:
         stage = self.workflow.stage(stage_id)
+        document: str | None = None
+        classification: Classification | None = None
         if stage.subworkflow is not None:
             outcomes = self.child_outcomes[stage_id][-1] if self.child_outcomes[stage_id] else []
-            return aggregate_children(stage, outcomes, snapshot, self.bindings.registry)
-        if self.classifier is None:
-            raise ContractViolation("Classifier が束縛されていない")
-        return evaluate_stage(
-            stage,
-            snapshot,
-            workspace=self.workspace,
-            registry=self.bindings.registry,
-            classifier=self.classifier,
-            threshold=self.threshold,
+            verdict = aggregate_children(stage, outcomes, snapshot, self.bindings.registry)
+        else:
+            if self.classifier is None:
+                raise ContractViolation("Classifier が束縛されていない")
+            verdict, document, classification = evaluate_stage_detailed(
+                stage,
+                snapshot,
+                workspace=self.workspace,
+                registry=self.bindings.registry,
+                classifier=self.classifier,
+                threshold=self.threshold,
+            )
+        self.evaluations.append(self._record(stage, snapshot, verdict, document, classification))
+        return verdict
+
+    def _record(
+        self,
+        stage: Stage,
+        snapshot: Snapshot,
+        verdict: Verdict,
+        document: str | None,
+        classification: Classification | None,
+        *,
+        injected: bool = False,
+    ) -> EvaluationRecord:
+        carry_in = {
+            k: snapshot.memory[k]
+            for k in sorted(self._carry_in_keys[stage.id])
+            if k in snapshot.memory
+        }
+        carry_out: dict[str, JsonValue] = {}
+        if verdict.kind is VerdictKind.END_STATE and verdict.state is not None:
+            rb = stage.rollback_for(verdict.state)
+            if rb is not None:
+                carry_out = {k: snapshot.memory[k] for k in rb.carry if k in snapshot.memory}
+        return EvaluationRecord(
+            workflow=self.workflow.name,
+            stage_id=stage.id,
+            entry=max(1, self.entry_counts[stage.id]),
+            verdict=verdict,
+            document=document,
+            options=class_options(stage),
+            classification=classification,
+            carry_in=carry_in,
+            carry_out=carry_out,
+            injected=injected,
+        )
+
+    def replace_last_evaluation(self, stage: Stage, snapshot: Snapshot, verdict: Verdict) -> None:
+        """注入: 直前の評価記録の Verdict を差し替える（記録には注入と残る）。"""
+        last = self.evaluations[-1]
+        self.evaluations[-1] = self._record(
+            stage, snapshot, verdict, last.document, last.classification, injected=True
         )
 
     def restore(self, snapshot: Snapshot) -> Snapshot:
@@ -296,6 +387,7 @@ class ReferenceRuntime:
                 strict_writes=self.strict_writes,
                 initial_memory=initial,
                 child=True,
+                inject=self.inject,
             )
             try:
                 result = child.run()
@@ -338,9 +430,12 @@ class Runner:
         strict_writes: bool = True,
         initial_memory: Mapping[str, JsonValue] | None = None,
         child: bool = False,
+        inject: Mapping[tuple[str, int], Verdict] | None = None,
     ) -> None:
         self.workflow = workflow
         self._child = child  # 子 run: escalate は人間へ行かず ChildOutcome になる
+        # 注入: (stage id, 進入回数) → その進入の評価結果を差し替える（E2E の「注入」。記録に残る）
+        self.inject: dict[tuple[str, int], Verdict] = dict(inject or {})
         self.rt = ReferenceRuntime(
             workflow,
             bindings,
@@ -349,6 +444,7 @@ class Runner:
             recorder=recorder,
             strict_writes=strict_writes,
         )
+        self.rt.inject = self.inject
         self.human = bindings.human
         self.memory: dict[str, JsonValue] = dict(initial_memory or {})
         self.pos = 0
@@ -391,6 +487,8 @@ class Runner:
             if self._resume_from_start:
                 self._reset_to_start(stage)
                 self._resume_from_start = False
+            else:
+                self.rt.entry_counts[stage.id] += 1
             start = self.rt.start(stage.id, self.memory)
             self.start_by_stage[stage.id] = start
             self.start_snapshots.append(start)
@@ -403,6 +501,12 @@ class Runner:
             self.memory = dict(end.memory)
             self.end_snapshots.append(end)
             verdict = self.rt.evaluate(stage.id, end)
+            injected = self.inject.get((stage.id, self.rt.entry_counts[stage.id]))
+            if injected is not None:
+                verdict = dataclasses.replace(
+                    injected, reason=f"注入（元の判定: {verdict.kind.value}）{injected.reason}"
+                )
+                self.rt.replace_last_evaluation(stage, end, verdict)
             if stage.subworkflow is not None:
                 self.trace.append(
                     TransitionRecord(TransitionKind.SUBWORKFLOW_AGGREGATE, stage.id, None, verdict)
@@ -593,4 +697,5 @@ class Runner:
             child_outcomes={k: list(v) for k, v in self.rt.child_outcomes.items()},
             child_outcome=self._child_outcome,
             child_results={k: list(v) for k, v in self.rt.child_results.items()},
+            evaluations=list(self.rt.evaluations),
         )

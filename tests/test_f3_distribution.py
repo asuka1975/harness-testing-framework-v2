@@ -33,7 +33,9 @@ def samples(toy: ModuleType, tmp_path_factory: pytest.TempPathFactory):
     expectations = load_expectations(EXPECTATIONS / "markov.yaml")
     root = tmp_path_factory.mktemp("dist")
     return run_many(
-        lambda seed: toy.harness.make_stochastic_runner(profile, seed=seed, workspace=root / str(seed)),
+        lambda seed: toy.harness.make_stochastic_runner(
+            profile, seed=seed, workspace=root / str(seed)
+        ),
         runs=expectations.runs,
         seed=expectations.seed,
     )
@@ -45,7 +47,9 @@ def test_correct_expectations_pass(samples) -> None:
 
 
 def test_shifted_expectations_fail(samples) -> None:
-    report = check_expectations(tally(samples), load_expectations(EXPECTATIONS / "markov_shifted.yaml"))
+    report = check_expectations(
+        tally(samples), load_expectations(EXPECTATIONS / "markov_shifted.yaml")
+    )
     assert not report.ok
     assert any(v.stage_id == "verify" for v in report.violations)
 

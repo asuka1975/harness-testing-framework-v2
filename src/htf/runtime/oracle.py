@@ -10,6 +10,7 @@ from pathlib import Path
 
 from htf.contract import (
     ChildOutcome,
+    Classification,
     Classifier,
     ClassOption,
     JsonValue,
@@ -112,6 +113,61 @@ def class_options(stage: Stage) -> list[ClassOption]:
     ]
 
 
+def evaluate_stage_detailed(
+    stage: Stage,
+    snapshot: Snapshot,
+    *,
+    workspace: Path,
+    registry: MetricRegistry,
+    classifier: Classifier,
+    threshold: float,
+) -> tuple[Verdict, str | None, Classification | None]:
+    """CONTRACT 第 4 節の順序: goal 指標 → goal 定性 → end_state → unknown。
+
+    判定に加えて、分類器に渡した状態文書と分類結果を返す（評価ログ・トリアージ・コーパスの元）。
+    """
+    try:
+        metrics_ok, _values, failed = evaluate_metrics(stage.goal, snapshot, registry)
+    except MetricError as e:
+        return (
+            Verdict(VerdictKind.UNKNOWN, decided_by="quantitative", reason=f"評価不能: {e}"),
+            None,
+            None,
+        )
+
+    document = project(stage, snapshot, workspace)
+    result = classifier.classify(document, class_options(stage))
+    confident = result.confidence >= threshold
+
+    if result.option_id == GOAL_OPTION and confident:
+        if metrics_ok:
+            verdict = Verdict(
+                VerdictKind.GOAL, confidence=result.confidence, decided_by="qualitative", reason=""
+            )
+        else:
+            verdict = Verdict(
+                VerdictKind.UNKNOWN,
+                confidence=result.confidence,
+                decided_by="quantitative",
+                reason=f"指標 {failed} が不成立だが分類器は goal を選んだ（不一致）",
+            )
+    elif result.option_id != UNKNOWN and result.option_id in stage.end_state_ids() and confident:
+        verdict = Verdict(
+            VerdictKind.END_STATE,
+            state=result.option_id,
+            confidence=result.confidence,
+            decided_by="classifier",
+        )
+    else:
+        verdict = Verdict(
+            VerdictKind.UNKNOWN,
+            confidence=result.confidence,
+            decided_by="threshold",
+            reason=f"分類器の選択 {result.option_id!r}（確信度 {result.confidence}）",
+        )
+    return verdict, document, result
+
+
 def evaluate_stage(
     stage: Stage,
     snapshot: Snapshot,
@@ -121,40 +177,15 @@ def evaluate_stage(
     classifier: Classifier,
     threshold: float,
 ) -> Verdict:
-    """CONTRACT 第 4 節の順序: goal 指標 → goal 定性 → end_state → unknown。"""
-    try:
-        metrics_ok, _values, failed = evaluate_metrics(stage.goal, snapshot, registry)
-    except MetricError as e:
-        return Verdict(VerdictKind.UNKNOWN, decided_by="quantitative", reason=f"評価不能: {e}")
-
-    document = project(stage, snapshot, workspace)
-    result = classifier.classify(document, class_options(stage))
-    confident = result.confidence >= threshold
-
-    if result.option_id == GOAL_OPTION and confident:
-        if metrics_ok:
-            return Verdict(
-                VerdictKind.GOAL, confidence=result.confidence, decided_by="qualitative", reason=""
-            )
-        return Verdict(
-            VerdictKind.UNKNOWN,
-            confidence=result.confidence,
-            decided_by="quantitative",
-            reason=f"指標 {failed} が不成立だが分類器は goal を選んだ（不一致）",
-        )
-    if result.option_id != UNKNOWN and result.option_id in stage.end_state_ids() and confident:
-        return Verdict(
-            VerdictKind.END_STATE,
-            state=result.option_id,
-            confidence=result.confidence,
-            decided_by="classifier",
-        )
-    return Verdict(
-        VerdictKind.UNKNOWN,
-        confidence=result.confidence,
-        decided_by="threshold",
-        reason=f"分類器の選択 {result.option_id!r}（確信度 {result.confidence}）",
+    verdict, _document, _result = evaluate_stage_detailed(
+        stage,
+        snapshot,
+        workspace=workspace,
+        registry=registry,
+        classifier=classifier,
+        threshold=threshold,
     )
+    return verdict
 
 
 def aggregate_children(

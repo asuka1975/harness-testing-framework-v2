@@ -25,7 +25,9 @@ def _samples(toy: ModuleType, root: Path, profile_name: str):
     profile = toy.harness.load_profile(PROFILES / f"{profile_name}.yaml")
     expectations = load_expectations(EXPECTATIONS / f"{profile_name}.yaml")
     return run_many(
-        lambda seed: toy.harness.make_stochastic_runner(profile, seed=seed, workspace=root / str(seed)),
+        lambda seed: toy.harness.make_stochastic_runner(
+            profile, seed=seed, workspace=root / str(seed)
+        ),
         runs=expectations.runs,
         seed=expectations.seed,
     )
@@ -33,13 +35,17 @@ def _samples(toy: ModuleType, root: Path, profile_name: str):
 
 def test_split_class_is_detected(toy: ModuleType, tmp_path: Path) -> None:
     samples = _samples(toy, tmp_path, "split")
-    report = independence(samples, stage_id="check_section", cls="inconsistent", permutations=300, seed=1)
+    report = independence(
+        samples, stage_id="check_section", cls="inconsistent", permutations=300, seed=1
+    )
     assert len(report.groups) >= 2
     assert report.p_value < 0.01, report
 
 
 def test_unsplit_class_is_not_flagged(toy: ModuleType, tmp_path: Path) -> None:
     samples = _samples(toy, tmp_path, "markov")
-    report = independence(samples, stage_id="check_section", cls="inconsistent", permutations=300, seed=1)
+    report = independence(
+        samples, stage_id="check_section", cls="inconsistent", permutations=300, seed=1
+    )
     assert len(report.groups) >= 2
     assert report.p_value >= 0.05, report

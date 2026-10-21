@@ -25,11 +25,19 @@ from .model import (
     Subworkflow,
     Workflow,
 )
-from .oracle import DictMetricRegistry, class_options, evaluate_metrics, evaluate_stage, project
+from .oracle import (
+    DictMetricRegistry,
+    class_options,
+    evaluate_metrics,
+    evaluate_stage,
+    evaluate_stage_detailed,
+    project,
+)
 from .recorder import RecordedClassifier, RecordedLLM, RecordedUserIO, Recorder, ReplayMismatch
 from .runner import (
     DEFAULT_THRESHOLD,
     Bindings,
+    EvaluationRecord,
     GateEvent,
     PendingQuestion,
     ReferenceRuntime,
@@ -48,6 +56,7 @@ __all__ = [
     "Criterion",
     "DictMetricRegistry",
     "EndState",
+    "EvaluationRecord",
     "GateEvent",
     "Goal",
     "MetricError",
@@ -73,6 +82,7 @@ __all__ = [
     "class_options",
     "evaluate_metrics",
     "evaluate_stage",
+    "evaluate_stage_detailed",
     "load_workflow",
     "project",
     "snapshot_digest",

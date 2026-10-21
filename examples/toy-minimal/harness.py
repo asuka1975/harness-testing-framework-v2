@@ -7,14 +7,24 @@
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
 
-from htf.contract import Abort, ContinueAsGoal, HumanDecider, Rerun, Resolution, RollbackTo
-from htf.runtime import Bindings, DictMetricRegistry
-from htf.testing.harness import DeferringUserIO, EchoLLM, MarkerClassifier
+from htf.contract import (
+    Abort,
+    ContinueAsGoal,
+    Escalation,
+    HumanDecider,
+    Rerun,
+    Resolution,
+    RollbackTo,
+    Verdict,
+)
+from htf.runtime import Bindings, DictMetricRegistry, Runner, load_workflow
+from htf.testing.harness import DeferringUserIO, EchoLLM, MarkerClassifier, ScriptedHuman
 
 from . import metrics as _metrics
 from .stages import (
@@ -24,6 +34,7 @@ from .stages import (
     Draft,
     Elaborate,
     ScriptCursor,
+    StochasticSource,
     Verify,
     WriteSection,
 )
@@ -35,6 +46,7 @@ CHILD_PATH = ROOT / "elaborate-claim.yaml"
 MANIFEST_PATH = _metrics.MANIFEST_PATH
 WORKFLOW_NAME = "toy-minimal"
 CHILD_NAME = "elaborate-claim"
+SCENARIO_DIR = ROOT / "tests" / "fixtures" / "scenarios"
 
 
 @dataclass(frozen=True)
@@ -118,3 +130,90 @@ def make_bindings(
         llm=EchoLLM(),
         human=human,
     )
+
+
+# --- F3: 確率的偽本体の構成（profile）と、分布テスト / E2E 計画のための Runner の組み立て ---
+
+
+@dataclass(frozen=True)
+class Profile:
+    """確率的偽本体の構成。分布は stage → first | reentry → class → 確率。split は任意。"""
+
+    name: str
+    title: str
+    claims: list[str]
+    human: list[str]
+    distributions: dict[str, dict[str, dict[str, float]]]
+    split: dict | None = None
+
+
+def load_profile(path: Path) -> Profile:
+    doc = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    return Profile(
+        name=doc["name"],
+        title=doc.get("title", "題目"),
+        claims=list(doc["claims"]),
+        human=list(doc.get("human") or ["abort"]),
+        distributions={
+            s: {k: dict(d) for k, d in kinds.items()} for s, kinds in doc["distributions"].items()
+        },
+        split=doc.get("split"),
+    )
+
+
+class _RepeatingHuman:
+    """escalate のたびに同じ解決の列を繰り返す（分布テストでは run を止めるだけ）。"""
+
+    def __init__(self, resolutions: list) -> None:
+        self._resolutions = list(resolutions)
+        self._i = 0
+
+    def resolve(self, escalation: Escalation):  # noqa: ANN201
+        r = self._resolutions[min(self._i, len(self._resolutions) - 1)]
+        self._i += 1
+        return r
+
+
+def _workflow():  # noqa: ANN202
+    return load_workflow(WORKFLOW_PATH, metric_names=registry().names())
+
+
+def make_stochastic_runner(profile: Profile, *, seed: int, workspace: Path) -> Runner:
+    """profile の分布から結果を引く偽本体で Runner を作る。本体の成果物を書くコードは決定論的本体と同じ。"""
+    source = StochasticSource(profile.distributions, profile.claims, seed=seed, split=profile.split)
+    bodies = {
+        (WORKFLOW_NAME, "collect"): Collect(source),  # type: ignore[arg-type]
+        (WORKFLOW_NAME, "draft"): Draft(source),  # type: ignore[arg-type]
+        (WORKFLOW_NAME, "verify"): Verify(source),  # type: ignore[arg-type]
+        (WORKFLOW_NAME, "elaborate"): Elaborate(),
+        (CHILD_NAME, "write_section"): WriteSection(source),  # type: ignore[arg-type]
+        (CHILD_NAME, "check_section"): CheckSection(source),  # type: ignore[arg-type]
+    }
+    bindings = Bindings(
+        bodies=bodies,
+        registry=registry(),
+        classifier=MarkerClassifier(),
+        user=PersonaUserIO(profile.title, profile.claims),
+        llm=EchoLLM(),
+        human=_RepeatingHuman([_parse_resolution(h) for h in profile.human]),
+    )
+    return Runner(_workflow(), bindings, workspace=workspace)
+
+
+def make_plan_runner(
+    scenario_name: str,
+    outcomes: Mapping[str, list[str]],
+    human: list[str] | None,
+    inject: Mapping[tuple[str, int], Verdict],
+    workspace: Path,
+) -> Runner:
+    """E2E 計画の一項目から Runner を作る（htf.testing.e2e.run_plan の工場）。"""
+    scenario = load_scenario(SCENARIO_DIR / f"{scenario_name}.yaml")
+    if outcomes:
+        scenario = scenario.with_outcomes(**{k: list(v) for k, v in outcomes.items()})
+    if human is not None:
+        scenario = dataclasses.replace(scenario, human=list(human))
+    if scenario.user == "deferring":
+        scenario = dataclasses.replace(scenario, user="simulator")
+    bindings = make_bindings(scenario, human=ScriptedHuman(scenario.resolutions))
+    return Runner(_workflow(), bindings, workspace=workspace, inject=inject)

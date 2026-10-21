@@ -37,7 +37,11 @@ def test_targets_enumerate_parent_and_child(toy: ModuleType) -> None:
     keys = {(t.workflow, t.stage_id, t.state) for t in targets}
     assert ("toy-minimal", "verify", "checks_failed") in keys
     assert ("elaborate-claim", "check_section", "inconsistent") in keys
-    assert ("toy-minimal", "collect", "goal") in keys and ("toy-minimal", "collect", "unknown") in keys
+    assert ("toy-minimal", "collect", "goal") in keys and (
+        "toy-minimal",
+        "collect",
+        "unknown",
+    ) in keys
     assert len(keys) == 17
 
 
@@ -56,7 +60,9 @@ def _samples(toy: ModuleType, root: Path, name: str):
     profile = toy.harness.load_profile(PROFILES / f"{name}.yaml")
     expectations = load_expectations(EXPECTATIONS / f"{name}.yaml")
     return run_many(
-        lambda seed: toy.harness.make_stochastic_runner(profile, seed=seed, workspace=root / str(seed)),
+        lambda seed: toy.harness.make_stochastic_runner(
+            profile, seed=seed, workspace=root / str(seed)
+        ),
         runs=expectations.runs,
         seed=expectations.seed,
     )
