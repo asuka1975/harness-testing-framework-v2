@@ -1,0 +1,20 @@
+# 台本: collect のユーザー入出力がその場で答えられない → 中断。回答を一つずつ与えて再開（3 問）
+name: suspend_resume
+claims: [主張A]
+outcomes:
+  collect: [goal]
+  draft: [goal]
+  verify: [goal]
+  elaborate: [goal]
+child_outcomes:
+  - write_section: [goal]
+    check_section: [goal]
+user: deferring
+answers:
+  - 題目X
+  - [主張A]
+  - { 主張A: grounds/a.txt }
+human: []
+expect:
+  status: completed
+  transitions: [suspend_resume, suspend_resume, suspend_resume, next, next, next, subworkflow_aggregate, next]

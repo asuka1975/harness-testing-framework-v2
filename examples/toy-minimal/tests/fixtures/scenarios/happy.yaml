@@ -1,0 +1,17 @@
+# 台本: 全ステージが goal。期待する遷移列と終了状態を書く
+name: happy
+claims: [主張A, 主張B]
+outcomes:
+  collect: [goal]
+  draft: [goal]
+  verify: [goal]
+  elaborate: [goal]
+child_outcomes:            # elaborate の進入ごとに、子の各ステージの n 回目の結果
+  - write_section: [goal]
+    check_section: [goal]
+user: simulator
+human: []
+expect:
+  status: completed
+  transitions: [next, next, next, subworkflow_aggregate, next]
+  gates: ["prepare:passed", "verify:passed"]

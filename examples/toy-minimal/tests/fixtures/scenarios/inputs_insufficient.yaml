@@ -1,0 +1,16 @@
+# 台本: draft が inputs_insufficient → collect へ（フェーズ内ロールバック、carry: missing_inputs）
+name: inputs_insufficient
+claims: [主張A]
+outcomes:
+  collect: [goal]
+  draft: [inputs_insufficient, goal]
+  verify: [goal]
+  elaborate: [goal]
+child_outcomes:
+  - write_section: [goal]
+    check_section: [goal]
+user: simulator
+human: []
+expect:
+  status: completed
+  transitions: [next, rollback_within_phase, next, next, next, subworkflow_aggregate, next]

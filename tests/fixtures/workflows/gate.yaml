@@ -1,0 +1,45 @@
+# フェーズゲートのテスト用（決定 #5）。2 フェーズ 2 ステージ。
+workflow:
+  name: gate
+  description: フェーズゲートの通過・不成立・無効化を決定論的に作る
+  phases:
+    - id: first
+      name: First
+      description: a.json を書く
+      goal:
+        qualitative: a.json がゲート条件を満たす
+        quantitative:
+          gate_ok: { description: a.json の gate_ok が true, equals: true }
+      stages:
+        - id: seed
+          name: Seed
+          description: a.json を書く
+          artifacts: { writes: [a.json], memory_in: [reason] }
+          goal:
+            qualitative: a.json がある
+            quantitative:
+              a_exists: { description: a.json がある, equals: true }
+          end_state:
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback: []
+    - id: second
+      name: Second
+      description: b.json を書く
+      goal:
+        qualitative: b.json がある
+        quantitative:
+          b_exists: { description: b.json がある, equals: true }
+      stages:
+        - id: probe
+          name: Probe
+          description: b.json を書く。back なら seed へ戻る
+          artifacts: { reads: [a.json], writes: [b.json], memory_out: [reason] }
+          goal:
+            qualitative: b.json が結果を記録している
+            quantitative:
+              b_exists: { description: b.json がある, equals: true }
+          end_state:
+            - { id: back, description: b.json の outcome が back である。やり直しの理由が memory にある }
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback:
+            - { state: back, stage: seed, carry: [reason], max: 2 }

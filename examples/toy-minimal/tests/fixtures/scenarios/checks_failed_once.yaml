@@ -1,0 +1,17 @@
+# 台本: verify が checks_failed → draft へ（フェーズ境界越え、carry: failing_checks）。prepare のゲートは無効化され再通過する
+name: checks_failed_once
+claims: [主張A, 主張B]
+outcomes:
+  collect: [goal]
+  draft: [goal]
+  verify: [checks_failed, goal]
+  elaborate: [goal]
+child_outcomes:
+  - write_section: [goal]
+    check_section: [goal]
+user: simulator
+human: []
+expect:
+  status: completed
+  transitions: [next, next, rollback_across_phase, next, next, subworkflow_aggregate, next]
+  gates: ["prepare:passed", "prepare:invalidated", "prepare:passed", "verify:passed"]

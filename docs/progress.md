@@ -4,18 +4,25 @@
 
 ## 次にやること
 
-F1 本体は実装・検証済みで、検証役の報告も受け入れた。**人間ゲートで止まっている。** 決定は docs/decisions.md の ADR-011 に書く（直接編集でよい）。
+F1 は人間ゲートを通過した（2026-10-22、全て承認）。人間は不在（就寝）で、F2 は人間ゲートが無いので自律的に進める。**止まる位置は F3 の v0.1 公開承認**（第5.5節の条件に当たれば、その前でも止まる）。
 
-1. **人間ゲート（F1）**: 次の三つの回答を待つ。回答があるまで F2 には入らない
-   - スキーマ（`schema/workflow.schema.json`）と契約（`src/htf/contract/CONTRACT.md`、`types.py`、`interfaces.py`）の承認
-   - ADR-011 の小決定 11.1〜11.21 の承認（G7）
-   - ADR-011「ゲートで決めてほしい事項」G1〜G6（toy-minimal の記述の意味確定、分類体系の変更提案、集約規則の unknown 優先のスキーマ拡張、ステージ数の数え方）
-2. **G4 で (b) が選ばれたら**: 集約規則の `state` に `unknown` を許す拡張。完了条件を先に書く（正例 1、負例の `subworkflow_aggregate__parent_state_unknown` を正例側へ移し、代わりに「unknown 規則の後ろに置いた規則が到達不能」等の負例を置くか検討）→ スキーマ → 検査器 → CONTRACT.md 第 7 節 4 → toy-minimal の aggregate に unknown 規則を先頭に追加 → 検査
-3. **G1 / G3 / G5 で記述変更が承認されたら**: toy-minimal の該当記述を直し、`uv run python -m htf.testing.spec examples/toy-minimal/workflow.yaml --metrics examples/toy-minimal/metrics/manifest.json` と `uv run pytest` を通す
-4. **ゲート通過後、F2 に入る前に**: progress.md の「次にやること」を F2 のタスク列（loader、checkpoint、runner、oracle 基盤、recorder、toy-minimal の決定論的な偽ステージ本体、契約適合テスト、testing/harness のランナー、adopting.md 初版）に書き換える。テストは実装より先に**別コミット**にする（下記の運用規則）
-5. **運用上の確認（未回答）**: `reports/` を第4節の木に加えてよいか。`examples/software-factory/` の骨格を初期化で作らなかった判断でよいか。plan.md 第6節 F1 の「3〜4 ステージ」と F2 の「6 種の遷移」を ADR-009 (b) に合わせて改訂してよいか（計画エージェントが編集可能だが、計画書本文の変更は人間の確認を経たい）
+F2 のタスク列（第5.1節）。各タスクの完了条件はコマンドで確かめ、結果を本ファイルに残す。契約（`src/htf/contract/`）は承認済みなので F2 では変更しない。変更したくなったら ADR-012「F2 で確定した小決定」に「契約への提案」として積み、F3 ゲートで出す。
 
-運用規則（本日追加。検証役の報告「時系列が判定不能」を受けて）: 完了条件のテストは実装より先に**別コミット**にし、そのコミットで `uv run pytest` が失敗する（または収集に失敗する）出力を progress.md に残す。
+1. **完了条件のテストを先に書き、失敗を記録して別コミット**: `tests/test_runtime_transitions.py`（台本ごとの遷移列と、観測された遷移種の和集合が 7 種に等しいこと）、`tests/test_runtime_escalation.py`（4 つの解決）、`tests/test_runtime_recorder.py`（記録 → 再生で end スナップショットのハッシュ列が一致）、`tests/test_runtime_phase_gate.py`（ゲート不成立 → unknown、境界越えロールバックで無効化と再評価）、`tests/test_runtime_loader.py`（検査を通らない定義を拒否）、`tests/test_conformance_reference.py`（`htf.contract.conformance.ConformanceSuite` を継承）。台本は `examples/toy-minimal/tests/fixtures/scenarios/*.yaml`。完了条件: `uv run pytest --collect-only` が収集エラーで止まる出力を本ファイルに残す
+2. **model / loader**（`htf.runtime.model`、`loader`）: 検査器を通した定義だけを型付きモデルにする。子も再帰的に読む。完了条件: `uv run pytest tests/test_runtime_loader.py`
+3. **checkpoint**（`htf.runtime.checkpoint`）: store に start / end を取る、restore、overlay（未宣言の鍵は ContractViolation）。runner のメタデータディレクトリ（`.htf/`）は writes 外検出の対象外。完了条件: 契約適合テストの restore / overlay の項目
+4. **context + oracle**（`htf.runtime.context`、`oracle`）: 宣言の範囲だけ読み書きできる StageContext、評価順序（CONTRACT 第 4 節）、DictMetricRegistry、投影（reads ∪ writes ∪ memory_in）。完了条件: 契約適合テストの evaluate / ContractViolation の項目
+5. **recorder**（`htf.runtime.recorder`）: LLM・分類器・ユーザー回答の記録と再生（JSONL、順序照合、不一致は例外）。完了条件: `uv run pytest tests/test_runtime_recorder.py`
+6. **runner**（`htf.runtime.runner`）: 7 種の遷移、辺の max 計数、フェーズゲートの通過・無効化・再評価、中断（回答列を累積して開始時スナップショットから再実行）、escalate の 4 解決、子 run（親の集約へ）。完了条件: `uv run pytest tests/test_runtime_transitions.py tests/test_runtime_escalation.py tests/test_runtime_phase_gate.py`
+7. **toy-minimal の本体・指標・偽分類器・ユーザーシミュレータ**（`examples/toy-minimal/{stages,metrics,user}/`、`harness.py`）: 台本で制御する決定論的な偽本体。宣言どおりにだけ読み書きする。verify の本体は G3 の「仮定」の定義を反映する。完了条件: 6 と同じ
+8. **契約適合テスト**（`htf.contract.conformance`）: Runtime の 4 操作だけを対象にする継承可能なテストクラス。参照ランタイムが `tests/test_conformance_reference.py` で通す。完了条件: `uv run pytest tests/test_conformance_reference.py`
+9. **testing/harness**（`htf.testing.harness`）: 例のパッケージ読み込み、台本つき HumanDecider、遅延 / 待ち行列の UserIO、印を読む分類器、遷移の観測。完了条件: 1 のテストがこれだけを使って書ける
+10. **adopting.md 初版**（`docs/adopting.md`）: ハーネス側が満たすべきこと、組み込み方、契約適合テストの通し方。完了条件: toy-minimal の harness.py が adopting.md の手順だけで説明できる
+11. **カバレッジ**: CI に `uv run pytest --cov=htf.runtime --cov-fail-under=90` を独立のステップで。完了条件: ローカルで同じコマンドが通る
+12. **検証役**（新規 general-purpose。第5.10節の宣言を先に書く）: F2 完了条件の第三者判定。受け入れてから F3 へ
+13. **F3 に入る前に** 本節を F3 のタスク列に書き換える。F3 の終わりは v0.1 公開承認（人間ゲート）で止まる
+
+運用規則: 完了条件のテストは実装より先に**別コミット**にし、そのコミットで `uv run pytest` が失敗する（または収集に失敗する）出力を progress.md に残す。
 
 `reports/` の構造: `reports/verification/<task-id>/report.md`（検証役の報告）、`reports/dynamic/<id>/record.md`（動的ワークフローの記録、第5.10節）、`reports/triage/`（F3 以降）。
 
@@ -298,6 +305,21 @@ for h in ["ワークフロー定義の問題", "フレームワーク本体の�
 print()
 print(f"{len(failures)} failure(s)")
 sys.exit(1 if failures else 0)
+```
+
+**F2 完了条件のテスト（実装前、別コミット）**
+
+`tests/test_runtime_{transitions,escalation,recorder,phase_gate,loader}.py`、`tests/test_conformance_reference.py`、台本 8 本（`examples/toy-minimal/tests/fixtures/scenarios/`）、`tests/fixtures/workflows/gate.yaml` を書いた時点:
+
+```text
+$ uv run pytest --collect-only -q
+E   ModuleNotFoundError: No module named 'htf.contract.conformance'
+E   ImportError: cannot import name 'Runner' from 'htf.runtime'
+E   ImportError: cannot import name 'WorkflowDefinitionError' from 'htf.runtime'
+E   ImportError: cannot import name 'Bindings' from 'htf.runtime'
+E   ImportError: cannot import name 'Recorder' from 'htf.runtime'
+ERROR tests/test_conformance_reference.py … ERROR tests/test_runtime_transitions.py（6 ファイル）
+exit=2
 ```
 
 ### 動的ワークフローの宣言（第5.10節）: `f1-contract-and-spec`

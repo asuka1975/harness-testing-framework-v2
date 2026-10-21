@@ -1,0 +1,13 @@
+# 台本: verify が checks_failed を 3 回 → max 2 を超えて escalate。人間は中止
+name: checks_failed_max
+claims: [主張A]
+outcomes:
+  collect: [goal]
+  draft: [goal]
+  verify: [checks_failed, checks_failed, checks_failed]
+child_outcomes: []
+user: simulator
+human: [abort]
+expect:
+  status: aborted
+  transitions: [next, next, rollback_across_phase, next, rollback_across_phase, next, escalate_max_exceeded]

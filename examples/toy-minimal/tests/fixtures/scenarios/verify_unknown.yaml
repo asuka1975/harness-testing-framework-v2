@@ -1,0 +1,13 @@
+# 台本: verify が unknown → escalate。人間は中止（他の解決は tests/test_runtime_escalation.py）
+name: verify_unknown
+claims: [主張A]
+outcomes:
+  collect: [goal]
+  draft: [goal]
+  verify: [unknown]
+child_outcomes: []
+user: simulator
+human: [abort]
+expect:
+  status: aborted
+  transitions: [next, next, escalate_unknown]

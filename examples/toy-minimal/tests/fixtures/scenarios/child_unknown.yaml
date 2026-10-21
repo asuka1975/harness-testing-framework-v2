@@ -1,0 +1,16 @@
+# 台本: 子 write_section が unknown → 集約の unknown 規則で親 unknown → escalate。人間は goal 扱いで続行
+name: child_unknown
+claims: [主張A, 主張B]
+outcomes:
+  collect: [goal]
+  draft: [goal]
+  verify: [goal]
+  elaborate: [goal]
+child_outcomes:
+  - write_section: [unknown]
+    check_section: [goal]
+user: simulator
+human: [continue_as_goal]
+expect:
+  status: completed
+  transitions: [next, next, next, subworkflow_aggregate, escalate_unknown, next]
