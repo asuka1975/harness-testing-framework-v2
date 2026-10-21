@@ -576,3 +576,42 @@ ADR-001〜010 の決定を実装に落とす時に、計画書にも ADR にも�
 ### 決定
 
 （未記入。F3 ゲート）
+
+---
+
+## ADR-013 F3 のテストランナー群で確定した小決定（閾値はすべて仮置き）
+
+- 状態: 提案（F3 の v0.1 公開ゲートで承認）
+- 強制点: F3 ゲート（v0.1 公開承認）
+- 起票: 2026-10-22
+
+### 文脈
+
+計画書第6節「閾値はすべて仮置きで、人間が確定する」。F3 で入れた閾値と形式の決定を一覧にする。閾値はコードに置かず、expectations・計画・引数に置いてある（却下時はその値を変えるだけ）。
+
+### 確定した小決定（実装済み。ゲートで承認）
+
+| # | 項目 | 内容 | 置き場 | 却下時の戻し方 |
+| --- | --- | --- | --- | --- |
+| 13.1 | 評価ログ | runtime は評価のたびに `EvaluationRecord`（workflow、stage、進入回数、状態文書、選択肢、分類結果、Verdict、carry_in / carry_out、注入か）を `RunResult.evaluations` に残す。トリアージ・コーパス・分布の集計はすべてここから作る | `htf.runtime` | — |
+| 13.2 | 進入回数と first / reentry | 進入回数は Runner が数える（中断からの再開は数えない）。1 回目を first、2 回目以降を reentry として分布を集計する。確率的偽本体も同じ規則で数える | `htf.runtime`、toy の `StochasticSource` | carry の有無で分ける |
+| 13.3 | 注入 | `Runner(inject={(stage, n): Verdict})` で n 回目の進入の判定を差し替える。記録の `injected` と `reason` に残り、E2E のカバレッジは誘発と注入を区別して数える。子 run にも同じ表が渡る | `htf.runtime` | — |
+| 13.4 | expectations 形式 | `name`、`origin`（v0.1 は `workflow_start` のみ。保存した開始時スナップショットからの起動は欄だけ）、`runs`、`seed`、`stages.<stage>.<first|reentry>.<class>: {min, max}`、`outcomes.<status>: {min, max}`。観測頻度が区間に入るかで判定（統計的検定はしない） | `examples/toy-minimal/tests/expectations/` | 形式の改訂（F3 内 2 回まで。現在 0 回） |
+| 13.5 | 代表の鍵 | 独立性検証の群分けの鍵は設定項目（`independence(key=...)`）。既定は戻り先へ運ぶ carry（`carry_out`）の中身のハッシュ。carry が無いクラスは一群になり検証できない | `htf.testing.stages` | 既定を変える |
+| 13.6 | 下流の定義 | 既定は「同じ run 単位（親 run または各子 run）での、同じステージの次の評価のクラス（無ければ end）」。`downstream="next"` で直後の評価にも変えられる | `htf.testing.stages` | — |
+| 13.7 | 独立性の検定 | G 統計量と、種つきの並べ替え検定（既定 200 回）による右側 p 値。有意水準の既定 0.05。toy のテストは分割あり p < 0.01、分割なし p ≥ 0.05 で判定。分布関数を使わないので依存を増やさない | `htf.testing.stages`、`tests/test_f3_independence.py` | 回数と水準を変える |
+| 13.8 | オラクル検証の指標 | Cohen の κ、ECE（既定 10 ビン）、再実行一致（既定 2 回）。toy のテストの許容差: κ ±0.03（N=6000）、ECE < 0.03 / 既知の過信との差 ±0.03 | `htf.testing.oracle`、`tests/test_f3_oracle.py` | 許容差を変える |
+| 13.9 | コーパス形式 | JSONL。一行: id、workflow、stage、document、options（id と description）、label、note。トリアージの `export_corpus` がこの形で書く | `htf.testing.oracle` | — |
+| 13.10 | E2E の対象 | (workflow, stage, class) で、class は goal・各 end_state・unknown。親と子を列挙する。toy-minimal は 17 | `htf.testing.e2e` | goal を外す |
+| 13.11 | マルコフ合成 | 遷移行列 P(class | stage, first/reentry) から、ワークフロー定義の規則（next / rollback / max / 集約）で run を合成する。escalate は中止（aborted）とみなす。子 run の数は観測された分布から引く。実測との比較は結果（completed / aborted）の頻度の差で、許容差の仮置きは 0.1（N=300 / 合成 4000） | `htf.testing.e2e`、`tests/test_f3_e2e.py` | 許容差を変える |
+| 13.12 | トリアージの対象 | unknown の評価記録（分類器を呼んだものだけ。集約と評価不能は対象外）と、与えれば確信度が閾値未満のもの。子 run も辿る。ラベルは選択肢に無ければ拒否 | `htf.testing.triage` | — |
+| 13.13 | pytest のマーカー | `distribution` と `e2e`。偽本体なので今は常時実行（約 50 秒）。F5 で段階分け | pyproject | — |
+| 13.14 | toy の確率的本体 | 成果物を書くコードは決定論的本体と共通で、結果の供給元だけ `StochasticSource`（種つき分布）に差し替える。`split` 構成は check_section の再進入で奇数番目の主張の分布を差し替え、独立性検証とマルコフ合成の負例になる | `examples/toy-minimal/` | — |
+
+### 推奨
+
+13.1〜13.14 を承認。閾値（13.4、13.7、13.8、13.11）は実データが出るまで仮置きのまま。
+
+### 決定
+
+（未記入。F3 ゲート）

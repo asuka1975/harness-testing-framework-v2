@@ -1,6 +1,6 @@
 [project]
 name = "harness-testing-framework"
-version = "0.0.0"
+version = "0.1.0"
 description = "ワークフロー型エージェントハーネスのための汎用テスティングフレームワーク"
 requires-python = ">=3.12"
 dependencies = [

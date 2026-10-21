@@ -4,25 +4,15 @@
 
 ## 次にやること
 
-F2 は完了（検証役の判定「満たす」を受け入れ、報告の B1〜B4 / B6 / B9 を修正して 113 passed、runtime 93%）。**F3（テストランナー群）に入る。** 人間は不在。止まる位置は **F3 の終わりの v0.1 公開承認**（pyproject の版は 0.1.0 に上げてよいが tag と Release は打たない）。第5.5節の条件に当たればその前でも止まる。
+F3 のタスク 1〜11 は実装済み（127 passed、runtime 93.7%、全体 92%、版 0.1.0、tag 未打ち）。**検証役（F3）の判定 → 受け入れ → v0.1 の公開承認（人間ゲート）で止まる。**
 
-F3 のタスク列（第5.1節）。閾値（独立性の p 値、κ / ECE の許容差、マルコフ予測の許容差、N）はすべて仮置きで、コードでなく expectations / 設定に置き、ADR-013 に一覧にしてゲートに出す。依存は増やさない（χ² の分布関数が要る所は種を固定した並べ替え検定）。
+1. **検証役 `f3-test-runners`** を起動し（宣言は本ファイル末尾）、報告を受け入れる。問題があれば回帰テストを先に別コミットして直す
+2. **v0.1 のゲート報告**: ADR-012（12.1〜12.26。契約への提案 12.13〜12.16 / 12.25〜12.26 を含む）と ADR-013（13.1〜13.14）の決定欄、検証役の総合判定、tag を打ってよいかを人間に出して**止まる**。tag と GitHub Release は人間の承認後（リモート未設定なので push も人間）
+3. **承認後（次のセッション）**: 承認された契約への提案を実装（12.13 / 12.16 は検査器に性質を追加、12.14 / 12.15 / 12.25 / 12.26 は CONTRACT.md と types.py の改訂）→ `git tag v0.1.0` → F4 の準備（第7節の二つ目のプロンプトで別セッションを人間が起動。utilizer セッションは adopting.md と雛形だけを読む。harness-plan-template.md は F5 の成果物なので、F4 の前に最低限の雛形を置くかを人間に確認）
 
-1. **完了条件のテストを先に別コミット**: `tests/test_f3_distribution.py`（確率的偽本体に対して正しい expectations が通り、ずらした expectations が落ちる）、`tests/test_f3_independence.py`（クラス内で意図的に下流分布を分けた偽本体を検出し、分けていないものは検出しない）、`tests/test_f3_oracle.py`（既知の混同行列と較正を持つ偽分類器に対して κ と ECE を許容差内で再現。違う κ を期待すると落ちる。再実行一致）、`tests/test_f3_e2e.py`（E2E 計画が toy-minimal の親子の全 (stage, end_state) を誘発か注入で踏む。マルコフ予測と実測が許容差内。分割した本体では外れる）、`tests/test_f3_triage.py`（unknown を一件、待ち行列 → ラベル → コーパスへ流す）。実装前の失敗を記録
-2. **runtime の評価ログと注入**: `RunResult.evaluations`（stage、進入回数、状態文書、選択肢、分類結果、Verdict。評価時に捕まえる）と `.htf/evaluations.jsonl`。`Runner(inject={(stage, n): Verdict})` で n 回目の進入の Verdict を差し替え、`reason` に注入と書く
-3. **確率的偽本体**（`examples/toy-minimal/stages/stochastic.py`）: 結果の供給元を種つきの分布に差し替える（成果物を書くコードは決定論的本体を再利用）。再進入（carry あり）で分布が変わるもの、`check_section` の `inconsistent` にクラス内で代表（carry の中身）ごとに下流分布を分けたものを含む
-4. **分布テストランナーと expectations 形式**（`htf.testing.stages`）: 起点（ワークフロー先頭。保存した開始時スナップショットは欄だけ用意）、N、種、(stage, 初回 / 再進入) ごとのクラス頻度の区間、run 全体の結果の頻度の区間。expectations は `examples/toy-minimal/tests/expectations/`
-5. **独立性検証と遷移行列**（`htf.testing.stages`）: 代表の鍵 `(stage, class, 評価記録) → key` は設定項目（既定は carry のハッシュ）。クラス内の群ごとの下流クラス分布を種つき並べ替え検定で比べる。遷移行列 P(class | stage, entry) の推定
-6. **オラクル検証**（`htf.testing.oracle`）: コーパス形式とラベル形式（JSONL）、κ（Cohen）、ECE、再実行一致、レポート
-7. **E2E**（`htf.testing.e2e`）: 定義から (stage, end_state) を列挙、誘発（台本）と注入（2）で覆う計画、カバレッジ報告（誘発 / 注入を区別）、マルコフ合成（5 の行列から run 全体の結果の確率を予測し実測と比べる）
-8. **トリアージ**（`htf.testing.triage`）: unknown と低確信度の評価記録を待ち行列（JSONL）に積む、一覧、ラベル付け、コーパスへの書き出し
-9. **pytest のマーカー**: `distribution` / `e2e` を分け、CI では今は常時（偽本体）。F5 で段階分け
-10. **ADR-013**: F3 で確定した小決定（閾値の仮置き、代表の鍵、並べ替え検定、形式の改訂回数）
-11. **版を 0.1.0 に**、v0.1 のゲート項目（ADR-012 / 013 の決定欄）を揃えて報告し、**止まる**。検証役（F3）はゲートの前に起動する
+運用規則: 完了条件のテストは実装より先に別コミット。expectations 形式の改訂は F3 内で 2 回まで（現在 0 回）。検証役の予算は探針を含むなら 25 万トークン。
 
-運用規則: 完了条件のテストは実装より先に**別コミット**にし、そのコミットで `uv run pytest` が失敗する出力を progress.md に残す。expectations 形式の改訂は F3 内で 2 回まで（回数を本ファイルに残す。現在 0 回）。検証役の予算は探針を含むなら 25 万トークンを目安にする。
-
-`reports/` の構造: `reports/verification/<task-id>/report.md`、`reports/dynamic/<id>/record.md`、`reports/triage/`（F3 から）。
+`reports/` の構造: `reports/verification/<task-id>/report.md`、`reports/dynamic/<id>/record.md`、`reports/triage/`（待ち行列の置き場。toy のテストは tmp に書く）。
 
 ## 2026-10-22
 
@@ -65,6 +55,14 @@ F3 のタスク列（第5.1節）。閾値（独立性の p 値、κ / ECE の�
 - B5 / B7 / B8 / B10 と不足 17 点: adopting.md を実態に揃え、閾値 0.5 を仮置きとして記録。CONTRACT 第 8 節と第 7 節 1 の改訂は契約の変更なので提案（ADR-012 12.25 / 12.26）
 - W1 台本の規則を README に、W2 は v1.0 では誤認が起きない理由を記載、W3 verify に `goal_assumed`（台本 goal_assumed.yaml）
 
+**F3 テストランナー群（同日、人間不在で自律進行）**
+
+- 完了条件のテストを先に別コミット（b03a4b1、5 ファイル収集エラー）: 分布（正しい expectations が通りずらしたものが落ちる、再進入で分布が変わる、遷移行列）、独立性（分割の検出と非検出）、オラクル検証（既知の κ と ECE、違う κ の棄却、再実行一致）、E2E（17 対象の誘発 / 注入、マルコフ合成の一致と分割構成での不一致）、トリアージ一周
+- runtime: `EvaluationRecord`（評価ログ）、`Runner(inject=)`（注入。子 run にも引き継ぐ）
+- `htf.testing.stages`（run_many、tally、expectations、independence、transition_matrix）、`htf.testing.oracle`（コーパス、κ、ECE、再実行一致、ConfusionClassifier）、`htf.testing.e2e`（列挙、計画、カバレッジ、マルコフ合成）、`htf.testing.triage`（待ち行列）
+- toy-minimal: `StochasticSource`（成果物を書くコードは決定論的本体と共通）、profiles（markov / split）、expectations（markov / markov_shifted / split）、e2e/plan.yaml、`make_stochastic_runner` / `make_plan_runner`
+- ADR-013（13.1〜13.14）、adopting.md 第 6 節（テストランナー群）、pytest マーカー distribution / e2e、版 0.1.0（tag は未）
+
 ### 未完了と理由
 
 - ツールチェーンの骨格（pyproject、CI、.gitignore）: ADR-010 が未決のため作っていない（計画書 F1「決定 #10 が出たらツールチェーンの骨格と CI の雛形を作る」）
@@ -85,6 +83,13 @@ F3 のタスク列（第5.1節）。閾値（独立性の p 値、κ / ECE の�
 - 検証役による完了条件の第三者判定: 本セッションで起動する（下記の宣言）。受け入れてから F3 へ
 - ADR-012 の契約への提案 12.13〜12.16: F3 ゲートで決める（契約は承認済みなので F2 では変えない）
 - 子ワークフローのステージのユーザー入出力: v1.0 では未対応（`ContractViolation`。ADR-012 12.8）
+
+**F3**
+
+- 検証役の判定と v0.1 の公開承認: 本セッションで検証役を起動し、報告を受け入れた後に人間ゲートで止まる
+- 契約への提案（ADR-012 12.13〜12.16、12.25〜12.26）: 承認待ちのため未実装
+- expectations の起点「保存した開始時スナップショット」: 欄だけ（v0.1 では `workflow_start` のみ）
+- トリアージの記述改訂の提案: 作らない（人間の承認が要る。第5.4節）
 
 ### 発見した問題
 
@@ -124,6 +129,14 @@ F3 のタスク列（第5.1節）。閾値（独立性の p 値、κ / ECE の�
 - 束縛の鍵 (workflow 名, stage id) は親子で同名の workflow で衝突する。検査器に性質を足す提案（12.13）
 - フェーズゲート不成立の `Escalation.cause` が無い（12.15）。子のステージの `user_input` を静的に禁止したい（12.16）
 - 記録再生の不一致を作るには本体の振る舞い（台本の結果）を変える必要がある。入力（回答・LLM・分類器）は記録から来るので台本の入力を変えても要求は変わらない（テストの前提を直した）
+
+**F3 で見つかったもの**
+
+- 分布の集計で first / reentry を分けるには runtime の進入回数が要った（carry の有無では verify → draft → verify の再進入を区別できない）→ `EvaluationRecord.entry`（ADR-013 13.2）
+- 独立性検証の代表は「受け取った carry」では分けられない（check_section は carry を受けない）→ 既定を「戻り先へ運ぶ carry（carry_out）」にした（13.5）
+- E2E の注入は親の Runner だけでは子ステージに届かない → inject を子 run に引き継ぐ
+- マルコフ合成は子 run の数が分布から出ないので、観測された子 run 数の分布から引く（13.11）
+- `ConfusionClassifier` は真のラベルが要るので、状態文書の `truth:` 行から読む（テスト専用の約束）
 
 ### 実行した検証とその結果の要旨
 
@@ -289,6 +302,39 @@ $ uv run python -m htf.testing.spec examples/toy-minimal/workflow.yaml --metrics
 ```
 
 注: pyproject の addopts が `-q` なので `pytest -q` は `-qq` 相当になり件数の行が出ない。件数を見る時は `-o addopts=""`。
+
+**F3**
+
+```text
+$ uv run pytest --collect-only -q                         （テストを書いた直後、実装前。コミット b03a4b1）
+E   ImportError: cannot import name 'ConfusionClassifier' from 'htf.testing.oracle'
+E   ImportError: cannot import name 'check_expectations' from 'htf.testing.stages'
+E   ImportError: cannot import name 'compare_outcomes' from 'htf.testing.e2e'
+E   ImportError: cannot import name 'independence' from 'htf.testing.stages'
+E   ImportError: cannot import name 'load_corpus' from 'htf.testing.oracle'
+ERROR tests/test_f3_{distribution,e2e,independence,oracle,triage}.py   exit=2
+
+実装後:
+$ uv run pytest -o addopts="" -q tests/test_f3_triage.py tests/test_f3_oracle.py tests/test_f3_e2e.py::… tests/test_runtime_*
+  1 failed（E2E 計画の注入が子ステージに届かない）, 22 passed → inject を子 run に引き継いで修正
+$ uv run pytest -o addopts="" -q tests/test_f3_e2e.py tests/test_f3_distribution.py tests/test_f3_independence.py
+  10 passed in 49.28s
+$ uv run ruff format --check . && uv run ruff check .     → 50 files already formatted / All checks passed!
+$ uv run pytest -o addopts="" -q                           → 127 passed in 50.06s
+$ uv run pytest -q --cov=htf.runtime --cov-fail-under=90  → Required test coverage of 90% reached. Total coverage: 93.70%
+$ uv run pytest -q --cov=htf                               → testing/e2e 91%、oracle 93%、stages 91%、triage 75%、TOTAL 92%
+```
+
+### 動的ワークフローの宣言（第5.10節）: `f3-test-runners`
+
+- **目的**: F3 の完了条件の第三者判定（すべて LLM なし。正しい expectations が通りずらしたものが落ちる、独立性検証が分割を検出、E2E が全 (stage, end_state) を踏みマルコフ予測が実測と一致、偽の分類器で既知の κ と ECE を再現、トリアージに一件流せる）と、閾値の仮置き（ADR-013）の妥当性の読み
+- **役割と人数**: 検証役 1（general-purpose サブエージェント。新規起動）
+- **入力**: docs/plan.md（第6節 F3）、docs/decisions.md（ADR-012、ADR-013）、docs/adopting.md 第 6 節、tests/test_f3_*.py、examples/toy-minimal/（profiles、expectations、e2e/plan.yaml、stages/、harness.py）、`uv run pytest` と `uv run pytest --cov` の出力。実装 src/htf/testing/ と src/htf/runtime/ は読んでよいが判定の根拠は実行結果
+- **書いてよいパス**: `reports/verification/f3-test-runners/` のみ
+- **完了条件**: `report.md` に (1) F3 完了条件の各項目の判定と根拠、(2) 自作の探針（例: expectations の区間を少し動かして落ちる境界、独立性検証の p 値の種依存、注入した Verdict が記録に残ること、マルコフ合成の許容差 0.1 の余裕）、(3) ADR-013 の閾値で人間に見せるべき懸念、(4) 発見した問題（toy の構成 / 本体）、(5) 判定できなかった事項
+- **予算**: トークン 25 万、時間 25 分、フレームワーク外の LLM 呼び出し 0
+- **反復の上限**: 1。**入れ子の深さ**: 0
+- **受け入れ**: 報告を読んだ後、本セッションで `uv run pytest` を再実行して受け入れる
 
 ### 動的ワークフローの宣言（第5.10節）: `f2-runtime-and-tests`
 

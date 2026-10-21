@@ -177,7 +177,19 @@ subworkflow:
 - 子を持つステージに入るたびに `subworkflow.workspace` 配下を空にしてから子 run を起動する。前回の進入の子 run の残骸は残らない
 - フェーズゲート不成立の escalate に人間が `ContinueAsGoal` を返すと、ゲートを人間が通したものとして記録（`GateEvent(passed, note="human")`）し、再評価せずに次へ進む
 
-## 6. 迷ったら
+## 6. テストランナー群（F3）
+
+すべて LLM なしで動く。閾値はすべて仮置き（ADR-013）。
+
+- **評価ログ**: `result.evaluations`（`EvaluationRecord`: stage、進入回数、状態文書、選択肢、分類結果、Verdict、carry）。子 run の分は `result.child_results` の各 `RunResult` にある。トリアージ・コーパス・分布の集計はここから作る
+- **分布テスト**（`htf.testing.stages`）: 確率的な偽本体（種を固定し既知の分布でクラスを出す）で `run_many` → `tally` → `check_expectations`。expectations は YAML（`runs`、`seed`、`stages.<stage>.<first|reentry>.<class>: {min, max}`、`outcomes`）。実例 `examples/toy-minimal/tests/expectations/`
+- **独立性検証**（`independence`）: クラス内の代表（既定: 戻り先へ運ぶ carry の中身）ごとに下流のクラス分布が揃うかを、種つきの並べ替え検定で調べる。代表の鍵は `key=` で差し替える
+- **遷移行列とマルコフ合成**（`transition_matrix`、`htf.testing.e2e.synthesize_outcomes`）: P(class | stage, first/reentry) から run 全体の結果を合成し、`compare_outcomes` で実測と比べる
+- **E2E カバレッジ**（`htf.testing.e2e`）: `enumerate_targets` が定義から (workflow, stage, class) を列挙する。計画 YAML で各対象を台本で誘発するか、`Runner(inject={(stage, n): Verdict})` で注入する。`run_plan` が到達を数える（誘発 / 注入を区別）。実例 `examples/toy-minimal/tests/e2e/plan.yaml`
+- **オラクル検証**（`htf.testing.oracle`）: コーパス（JSONL）に対して分類器を走らせ、κ・ECE・再実行一致を出す。`ConfusionClassifier` は既知の混同行列を持つ偽物（ランナーの検証用）
+- **トリアージ**（`htf.testing.triage.TriageQueue`）: run の unknown と低確信度の評価記録を待ち行列に積み、人間がラベルを付け、コーパスに書き出す。記述の改訂は提案止まり（人間の承認）
+
+## 7. 迷ったら
 
 - この文書と `CONTRACT.md` で決まらないこと、htf に無い機能、回避したくなったこと → ハーネスの `docs/adopting-gaps.md` に書いて続行する。htf の修正は htf 側の通常のセッションが行う
 - end_state の記述の良し悪し（観測可能か、排他か）は検査器では見ない。人間のレビューに出す前に、実装していない第三者に読ませる
