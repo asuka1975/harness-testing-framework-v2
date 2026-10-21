@@ -29,6 +29,11 @@ packages = ["src/htf"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# CI の段階（第5.7節）: 整合性検査と決定論テストは常時、distribution / e2e は偽本体なので今は常時。F5 で段階分け
+markers = [
+    "distribution: 分布テスト（確率的偽本体を N 回実行する）",
+    "e2e: E2E カバレッジとマルコフ合成",
+]
 
 [tool.coverage.run]
 source = ["htf"]

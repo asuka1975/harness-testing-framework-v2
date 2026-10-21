@@ -1,0 +1,9 @@
+# split 構成の N と種（独立性検証とマルコフ合成の負例に使う。区間は markov と同じ観点で粗く）
+name: split
+origin: { kind: workflow_start }
+runs: 300
+seed: 200
+stages:
+  check_section:
+    first: { inconsistent: { min: 0.25, max: 0.55 } }
+outcomes: {}

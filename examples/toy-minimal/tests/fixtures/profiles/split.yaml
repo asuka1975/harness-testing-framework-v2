@@ -1,0 +1,18 @@
+# markov.yaml と同じ分布だが、check_section の inconsistent クラスの中で代表（主張）ごとに下流が分かれる。
+# 奇数番目の主張は、再進入後の check_section が必ず inconsistent（stuck）になる → 独立性検証とマルコフ合成の検出対象
+name: split
+title: 題目
+claims: [主張A, 主張B]
+human: [abort]
+distributions:
+  collect: { first: { goal: 1.0 } }
+  draft: { first: { goal: 0.95, unknown: 0.05 }, reentry: { goal: 1.0 } }
+  verify:
+    first: { goal: 0.55, checks_failed: 0.3, inputs_missing: 0.05, unknown: 0.1 }
+    reentry: { goal: 0.85, checks_failed: 0.1, unknown: 0.05 }
+  write_section: { first: { goal: 1.0 }, reentry: { goal: 0.8, unknown: 0.2 } }
+  check_section: { first: { goal: 0.6, inconsistent: 0.4 }, reentry: { goal: 0.75, inconsistent: 0.25 } }
+split:
+  stage: check_section
+  state: inconsistent
+  odd_claims_reentry: { inconsistent: 1.0 }   # 奇数番目の主張の再進入は必ず inconsistent

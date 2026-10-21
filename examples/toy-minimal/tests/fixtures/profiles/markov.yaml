@@ -1,0 +1,14 @@
+# 確率的偽本体の構成（マルコフ性が成り立つ）。結果は種つきの分布から引く。再進入（carry あり）で分布が変わる
+name: markov
+title: 題目
+claims: [主張A, 主張B]
+human: [abort]                      # escalate したら中止（run の結果 = aborted）
+distributions:
+  collect: { first: { goal: 1.0 } }
+  draft: { first: { goal: 0.95, unknown: 0.05 }, reentry: { goal: 1.0 } }
+  verify:
+    first: { goal: 0.55, checks_failed: 0.3, inputs_missing: 0.05, unknown: 0.1 }
+    reentry: { goal: 0.85, checks_failed: 0.1, unknown: 0.05 }
+  write_section: { first: { goal: 1.0 }, reentry: { goal: 0.8, unknown: 0.2 } }
+  check_section: { first: { goal: 0.6, inconsistent: 0.4 }, reentry: { goal: 0.75, inconsistent: 0.25 } }
+split: null

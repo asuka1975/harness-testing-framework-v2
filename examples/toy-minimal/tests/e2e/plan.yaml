@@ -1,0 +1,20 @@
+# E2E カバレッジ計画: 親子の全 (stage, end_state) を、誘発（台本）か注入（n 回目の進入の Verdict の差し替え）で踏む。
+# goal も一つのクラスとして数える。unknown を踏む run は human: [abort] で止める
+targets:
+  - { workflow: toy-minimal, stage: collect, state: goal, induce: happy }
+  - { workflow: toy-minimal, stage: collect, state: unknown, induce: happy, outcomes: { collect: [unknown] }, human: [abort] }
+  - { workflow: toy-minimal, stage: draft, state: goal, induce: happy }
+  - { workflow: toy-minimal, stage: draft, state: inputs_insufficient, induce: inputs_insufficient }
+  - { workflow: toy-minimal, stage: draft, state: unknown, inject: { scenario: happy, entry: 1 }, human: [abort] }
+  - { workflow: toy-minimal, stage: verify, state: goal, induce: happy }
+  - { workflow: toy-minimal, stage: verify, state: checks_failed, induce: checks_failed_once }
+  - { workflow: toy-minimal, stage: verify, state: inputs_missing, induce: happy, outcomes: { verify: [inputs_missing, goal] } }
+  - { workflow: toy-minimal, stage: verify, state: unknown, induce: verify_unknown }
+  - { workflow: toy-minimal, stage: elaborate, state: goal, induce: happy }
+  - { workflow: toy-minimal, stage: elaborate, state: sections_inconsistent, induce: sections_inconsistent }
+  - { workflow: toy-minimal, stage: elaborate, state: unknown, induce: child_unknown }
+  - { workflow: elaborate-claim, stage: write_section, state: goal, induce: happy }
+  - { workflow: elaborate-claim, stage: write_section, state: unknown, induce: child_unknown }
+  - { workflow: elaborate-claim, stage: check_section, state: goal, induce: happy }
+  - { workflow: elaborate-claim, stage: check_section, state: inconsistent, induce: sections_inconsistent }
+  - { workflow: elaborate-claim, stage: check_section, state: unknown, inject: { scenario: happy, entry: 1 }, human: [continue_as_goal] }
