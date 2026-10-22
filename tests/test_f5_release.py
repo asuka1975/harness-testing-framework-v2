@@ -192,8 +192,9 @@ def test_triage_items_carry_the_version_of_their_workflow(toy: ModuleType, tmp_p
     child_version = workflow.stage("elaborate").subworkflow.child.version
     from htf.contract import Verdict, VerdictKind
 
+    # 子の check_section を unknown にする（子 run の記録が待ち行列に入る）。親の記録は low_confidence=1.1 で全て積む
     inject = {
-        (workflow.name, "verify", 1): Verdict(kind=VerdictKind.UNKNOWN, reason="注入"),
+        (child_name, "check_section", 1): Verdict(kind=VerdictKind.UNKNOWN, reason="注入"),
     }
     result = Runner(
         workflow,
@@ -233,10 +234,12 @@ TEMPLATE_SECTIONS = [
 
 
 def _section_keys(text: str) -> list[str]:
-    """`## N. 題名（補足）` → `## N. 題名`（括弧の前まで。章の対応だけを比べる）。"""
+    """`## N. 題名（補足）` → `## N. 題名`（括弧の前まで。章の対応だけを比べる）。付録は種別だけ。"""
     keys = []
     for line in text.splitlines():
-        if line.startswith("## "):
+        if line.startswith("## 付録"):
+            keys.append("## 付録")
+        elif line.startswith("## "):
             keys.append(re.split(r"[（(]", line)[0].strip())
     return keys
 
