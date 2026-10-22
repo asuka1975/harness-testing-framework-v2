@@ -136,7 +136,7 @@ class TestMyRuntime(ConformanceSuite):
         return factory
 ```
 
-参照ランタイムを組み込むだけでも継承して通す（組み込み方が契約を壊していないことの確認）。スイートが判定するのは契約の三操作（run / evaluate / restore + overlay）と開始時スナップショットの取得（start）で、定義は同梱の `conformance.yaml`。制御ループの振る舞い（7 種の遷移、escalate の 4 解決、記録再生、子の集約）は参照ランタイムのもので、自前のランタイムを持つなら 3.9 の決定論テストを自前のランタイムに対しても書く。
+参照ランタイムを組み込むだけでも継承して通す（組み込み方が契約を壊していないことの確認）。スイートが判定するのは契約の `start` と三操作（run / evaluate / restore + overlay。CONTRACT 第 2 節）で、定義は同梱の `conformance.yaml`。制御ループの振る舞い（7 種の遷移、escalate の 4 解決、記録再生、子の集約）は参照ランタイムのもので、自前のランタイムを持つなら 3.9 の決定論テストを自前のランタイムに対しても書く。
 
 ### 3.9 決定論テストを書く
 
@@ -166,7 +166,7 @@ subworkflow:
 
 - 子の escalate（unknown、max 超過）は人間へ行かず、子 run の終わり方として親の集約へ渡る
 - 全ての子 run が goal なら親の goal 指標を評価して goal（親では分類器を呼ばない）。そうでなければ規則で end_state か unknown
-- 子のステージはユーザー入出力を使えない（v1.0 では未対応）
+- 子のステージは `user_input` を宣言できない（整合性検査 `subworkflow_user_input` が落とす。v1.0 では未対応）。親子で `workflow.name` は重複しない（`subworkflow_ref`）
 
 ## 5. ランタイムの規則（参照ランタイム）
 

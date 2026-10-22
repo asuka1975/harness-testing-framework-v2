@@ -113,7 +113,7 @@ class Escalation:
 
     stage_id: str
     verdict: Verdict
-    cause: Literal["unknown", "max_exceeded", "child_unresolved"]
+    cause: Literal["unknown", "max_exceeded", "child_unresolved", "phase_gate_failed"]
     snapshot: Snapshot
     edge: tuple[str, str] | None = None  # max 超過の時の (state, 戻り先)
 

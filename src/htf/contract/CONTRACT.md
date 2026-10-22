@@ -1,4 +1,4 @@
-# ハーネス契約（v0.1 草案、F1 の人間ゲート対象）
+# ハーネス契約（v0.1。F1 で承認、F3 ゲートで ADR-012 12.14 / 12.15 / 12.25 / 12.26 を反映）
 
 フレームワークとハーネスの境界を定める。フレームワークは契約を定め、ハーネスは契約を満たすもの（ワークフロー定義、ステージ本体、指標の実装、ユーザー入出力、LLM クライアント）を提供する。型は `types.py`、インターフェースは `interfaces.py`。この文書は意味を書く。
 
@@ -17,12 +17,13 @@
 
 | 操作 | 入力 → 出力 | 意味 |
 | --- | --- | --- |
+| `start(stage, memory)` | 作業ディレクトリの現在の状態 × memory → 開始時スナップショット | そのステージの `writes` の範囲と memory を保存する。`run` の入力はこれで取る（ADR-012 12.14） |
 | `run(stage, snapshot)` | 開始時スナップショット → 終了時スナップショット | 作業ディレクトリを開始時の状態にし、ステージ本体を実行し、終了時の状態を取る。`subworkflow` を持つステージでは子 run の起動と集約を含む（第 7 節） |
 | `evaluate(stage, snapshot)` | 終了時スナップショット → Verdict | 第 4 節の順序で三層に落とす |
 | `restore(snapshot)` | 開始時スナップショット → 同じ内容のスナップショット | 作業ディレクトリをその開始時の状態に戻す。`writes` の範囲外には触れない |
 | `overlay(snapshot, carry)` | 復元したスナップショット × carry → スナップショット | carry の項目だけを memory に重ねる。戻り先の `memory_in` に無い鍵は `ContractViolation` |
 
-ロールバックは `restore` と `overlay` の二操作の合成で、それ以外の操作を持たない。戻り先の開始時スナップショットは、その戻り先のステージを最後に開始した時のもの。
+ロールバックは `restore` と `overlay` の二操作の合成で、それ以外の操作を持たない。`start` は三操作の入力を作る操作で、契約適合テストはこの四つを対象にする。戻り先の開始時スナップショットは、その戻り先のステージを最後に開始した時のもの。
 
 ## 3. スナップショット形式
 
@@ -104,24 +105,24 @@ runner が起こす遷移は次の 7 種（`TransitionKind`）。計画書 F2 �
 
 `subworkflow` を持つステージの `run` は次を行う。
 
-1. `each` の鍵（`memory_in`）の値はリスト。要素 i ごとに子 run を一つ、作業ディレクトリ `<workspace><i>/` で起動する。子の memory の初期値は `{item_as: 要素, pass の各鍵: 親の値}` で、これが子の `workflow.inputs` と一致する（検査器が確かめる）
+1. `each` の鍵（`memory_in`）の値はリスト。子 run を起動する前に `<workspace>` 配下を空にし（前回の進入の残骸を残さない。ADR-012 12.26）、要素 i ごとに子 run を一つ、作業ディレクトリ `<workspace><i>/` で起動する。子の memory の初期値は `{item_as: 要素, pass の各鍵: 親の値}` で、これが子の `workflow.inputs` と一致する（検査器が確かめる）
 2. 子 run は独立した runner として子の定義を実行する。子のスナップショット store は子の作業ディレクトリ配下。子の中の escalate（unknown、max 超過）は人間へ行かず、その子 run の `ChildOutcome(stuck | unknown, stage, state)` になる。すべてのステージを `GOAL` で抜けた子 run は `ChildOutcome(goal)`
 3. 子 run がすべて終わったら、親のステージ本体（束縛されていれば）を実行する。子の成果物は `workspace` 配下にあり、親の `writes` に含まれる
 4. 親の `evaluate`: goal 指標 → すべての子 run が `goal` なら `GOAL`（goal 定性判定は子の中で済んでいるものとし、親では分類器を呼ばない）→ そうでなければ `aggregate` を上から順に評価し、最初に成立した規則の `state` に落ちる（`decided_by: aggregate`）→ どれも成立しなければ `UNKNOWN`（人間へ。`cause: child_unresolved`）
    - `any: {stage, state}`: 一つ以上の子 run がその (stage, state) で終わった。`all`: すべての子 run がその (stage, state) で終わった
    - 規則の `state` には `unknown` も書ける（明示の escalate）。成立すると親は `UNKNOWN`（人間へ、`cause: child_unresolved`）。子の unknown を人間に届けたい時は、unknown の規則を他の規則より上に置く（規則は上から順に評価するため、下に置くと先に成立した end_state の規則が勝ち、unknown は人間に届かない）。どの規則にも無い終わり方は親の `UNKNOWN`
-5. 入れ子の深さは 1 まで（子は `subworkflow` を持てない）。recorder は子 run も記録再生する
+5. 入れ子の深さは 1 まで（子は `subworkflow` を持てない）。子のステージは `user_input` を宣言できない（検査器が落とす。ADR-012 12.16）。親子で `workflow.name` は重複しない（束縛の鍵。12.13）。recorder は子 run も記録再生する
 
-## 8. 契約適合テスト（F2 で作る）
+## 8. 契約適合テスト（`htf.contract.conformance`）
 
-任意の `Runtime` 実装が通すべきもの。toy-minimal の定義と決定論的な偽ステージ本体で、次を確かめる。
+任意の `Runtime` 実装が通すべきもの。対象は `start` と三操作（run / evaluate / restore + overlay）で、定義は同梱の `conformance.yaml`（seed → probe）。本体・レジストリ・分類器はスイートが用意し、ランタイムには束縛の仕方だけを求める（ADR-012 12.25）。
 
-- 7 種の遷移がすべて起きる。escalate の 4 つの解決が動く
-- `restore` + `overlay` の後の作業ディレクトリと memory が、戻り先の開始時スナップショットに carry だけを重ねたものと一致する
-- `writes` 外への書き込み、未宣言の鍵への `emit`、未宣言ステージでの `ctx.user` が `ContractViolation` になる
-- 記録再生で同一スナップショットが得られる
-- 指標が例外を投げた時に `UNKNOWN(decided_by: quantitative)` になる
-- 子 run の集約が第 7 節のとおりに動く
+- `run` が `writes` の範囲と emit された memory だけを終了時スナップショットに取る
+- `writes` 外への書き込み、未宣言の鍵への `emit`、未宣言ステージでの `ctx.user` が `ContractViolation` になる。`ctx.memory` は `memory_in` の鍵だけ
+- `evaluate` が第 4 節の順序に従う（指標成立 + goal → goal、指標が例外 → unknown(quantitative)、指標不成立 + 分類器 goal → unknown(quantitative)、end_state、閾値未満 → unknown(threshold)）。分類器には goal と end_state の記述がそのまま渡る
+- `restore` が作業ディレクトリを開始時に戻し、`overlay` が宣言された鍵だけを重ねる
+
+制御ループの振る舞い（7 種の遷移、escalate の 4 解決、記録再生の同一性、子 run の集約、フェーズゲート）は参照ランタイムのもので、`htf.testing.harness` と各ハーネスの決定論テストで確かめる。自前のランタイムを持つハーネスは、同じ決定論テストを自前のランタイムに対しても書く。
 
 ## 9. 未定（F2 以降で決める）
 

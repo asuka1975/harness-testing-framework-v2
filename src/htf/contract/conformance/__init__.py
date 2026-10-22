@@ -33,6 +33,7 @@ from htf.contract.interfaces import (
     Classifier,
     Metric,
     MetricRegistry,
+    Runtime,
     StageBody,
     StageContext,
     UserIO,
@@ -44,7 +45,6 @@ from htf.contract.types import (
     ContractViolation,
     JsonValue,
     Snapshot,
-    Verdict,
     VerdictKind,
 )
 
@@ -52,18 +52,8 @@ WORKFLOW_PATH = Path(__file__).parent / "conformance.yaml"
 NAME = "conformance"
 
 
-class ConformanceRuntime(Protocol):
-    """三操作 + 開始時スナップショットの取得。"""
-
-    def start(self, stage_id: str, memory: Mapping[str, JsonValue]) -> Snapshot: ...
-
-    def run(self, stage_id: str, snapshot: Snapshot) -> Snapshot: ...
-
-    def evaluate(self, stage_id: str, snapshot: Snapshot) -> Verdict: ...
-
-    def restore(self, snapshot: Snapshot) -> Snapshot: ...
-
-    def overlay(self, snapshot: Snapshot, carry: Carry) -> Snapshot: ...
+# 契約の Runtime（start + 三操作）そのもの。名前は互換のために残す（ADR-012 12.14）
+ConformanceRuntime = Runtime
 
 
 class RuntimeFactory(Protocol):

@@ -589,7 +589,9 @@ class Runner:
                             TransitionKind.ESCALATE_UNKNOWN, stage.id, None, gate_verdict
                         )
                     )
-                    self._escalate(stage, end, gate_verdict, cause="unknown", gate_phase=phase)
+                    self._escalate(
+                        stage, end, gate_verdict, cause="phase_gate_failed", gate_phase=phase
+                    )
                     return
             self._advance(stage, verdict)
             return

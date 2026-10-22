@@ -13,7 +13,9 @@
   unknown_present              各ステージの end_state に unknown がある
   memory_in_source             memory_in の各鍵が、前方のステージの memory_out、このステージへの carry、
                                またはワークフローの inputs のいずれかにある
-  subworkflow_ref              子定義が存在して読み込め、再帰的に検査を通り、循環しない
+  subworkflow_ref              子定義が存在して読み込め、再帰的に検査を通り、循環せず、親子で
+                               workflow.name が重複しない（束縛の鍵。ADR-012 12.13）
+  subworkflow_user_input       子ワークフローのステージは user_input を宣言しない（v1.0 では未対応。12.16）
   subworkflow_depth            子は更に子を持たない（v1.0 は深さ 1 まで）
   subworkflow_inputs           each / pass は自ステージの memory_in、item_as ∪ pass == 子の inputs、
                                workspace は自ステージの writes のディレクトリ配下
@@ -55,6 +57,7 @@ CODES: frozenset[str] = frozenset(
         "subworkflow_depth",
         "subworkflow_inputs",
         "subworkflow_aggregate",
+        "subworkflow_user_input",
     }
 )
 
@@ -149,8 +152,13 @@ class _Checker:
     def __init__(self, report: Report, registry: set[str] | None) -> None:
         self.report = report
         self.registry = registry
+        self._docs: dict[Path, object] = {}  # 検査中の文書（親の name を子の検査で参照する）
 
     # --- 報告 ---
+
+    def _workflow_name(self, file: Path) -> str | None:
+        doc = self._docs.get(file.resolve())
+        return doc["workflow"]["name"] if isinstance(doc, dict) else None
 
     def add(self, file: Path, code: str, path: str, message: str) -> None:
         assert code in CODES, code
@@ -161,6 +169,7 @@ class _Checker:
     def check_document(
         self, file: Path, doc: object, *, depth: int, chain: tuple[Path, ...]
     ) -> None:
+        self._docs[file.resolve()] = doc
         if not self.check_schema(file, doc):
             return
         assert isinstance(doc, dict)
@@ -397,6 +406,22 @@ class _Checker:
             return
         assert isinstance(child, dict)
         child_idx = index_workflow(child)
+
+        if child["workflow"]["name"] == self._workflow_name(file):
+            self.add(
+                file,
+                "subworkflow_ref",
+                f"{spath}/ref",
+                f"子の workflow.name {child['workflow']['name']!r} が親と同じ（束縛の鍵が衝突する）",
+            )
+        asking = [s.stage_id for s in child_idx.stages if s.stage.get("user_input")]
+        if asking:
+            self.add(
+                file,
+                "subworkflow_user_input",
+                f"{spath}/ref",
+                f"子のステージ {asking} が user_input を宣言している（子のユーザー入出力は未対応）",
+            )
 
         supplied = {sub["item_as"], *(sub.get("pass") or [])}
         declared = set(child["workflow"].get("inputs") or [])

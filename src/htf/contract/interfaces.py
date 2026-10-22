@@ -106,7 +106,11 @@ class HumanDecider(Protocol):
 
 
 class Runtime(Protocol):
-    """三操作。契約適合テスト（F2）はこの Protocol に対して書く。"""
+    """三操作と開始時スナップショットの取得。契約適合テスト（htf.contract.conformance）はこの Protocol に対して書く。"""
+
+    def start(self, stage_id: str, memory: Mapping[str, JsonValue]) -> Snapshot:
+        """作業ディレクトリの現在の状態と memory から、そのステージの開始時スナップショットを取る（ADR-012 12.14）。"""
+        ...
 
     def run(self, stage_id: str, snapshot: Snapshot) -> Snapshot:
         """開始時スナップショットからステージ本体を実行し、終了時スナップショットを返す。"""
