@@ -86,6 +86,8 @@
 - F4 開始に伴うガード（software-factory 不在）を外した（3940915）
 - G-04 / 05 / 06 / 08 / 16 を toy-minimal で再現するテストを先に別コミット（02cb2af、6 件失敗）→ 本体を修正（034c7cf）。G-07 ruff の除外、G-03 CI のステップ、文書 13 件、契約への提案 4 件（ADR-014 14.1〜14.4）、解消しない理由 1 件（G-14）
 - software factory は変更せずに再検証: 92 passed、整合性検査 0 件（本体の修正が利用者の成果物に影響しない）
+- 利用者セッションの読取制限を自分の目で確認（第7節「制限を破った時点で F4 の結果は無効」）: `examples/software-factory/` の import は `htf.contract`、`htf.contract.conformance`、`htf.runtime`、`htf.testing.{harness,oracle,spec,stages,triage}` の公開名だけ。`htf.runtime.runner` 等の内部モジュール、`src/htf`、htf の plan.md / decisions.md / progress.md、htf の `tests/` への参照は無い。探針の残骸（probe、log）も無い → **F4 の結果は有効**
+- ADR-014 に第三者レビュー 11 件への推奨（採る 8、頻度を見てから 3）を添えた
 
 ### 未完了と理由
 

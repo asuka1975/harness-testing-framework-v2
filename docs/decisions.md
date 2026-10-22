@@ -687,9 +687,27 @@ F4 の利用者セッションが adopting.md と雛形だけから software fac
 | 14.3 | 子を持つステージの本体に、子 run の終わり方（`ChildOutcome` の列）を読み取り専用で渡す（`StageContext.child_outcomes`） | G-18。本体が成果物から分類をやり直さずに済む |
 | 14.4 | `UserIO.ask(question, *, schema=None, context=None)` に任意の JSON の文脈を加える | G-19。シミュレータや実 UI に、質問の根拠（見送られた要件など）を構造で渡す |
 
+### 第三者レビュー 11 件（`examples/software-factory/docs/plan.md` 第 1.1 節）への計画エージェントの推奨
+
+採否は人間の決定（分類体系の変更）。「採る」は版 0.2 で定義を変える、「見送る」は現状のまま、「頻度を見てから」はトリアージで観測してから。
+
+| 重大度 | 対象 | 推奨 | 理由 |
+| --- | --- | --- | --- |
+| 高 | 子 code の失敗が全て unknown | **採る**（確認ステージ `check` を子に足し、build_failed / lint_failed / out_of_scope → code） | adopting.md 3.1 に書いた「検出と修正を分ける」の実例になる。構造の変更なので版 0.2、台本・E2E 計画・expectations の更新を伴う |
+| 中 | verify のカバレッジ不足・lint・skip が unknown | 採る（criteria_unmet の記述を「受け入れテストが無いか passed でない」に広げる）。coverage_short の追加は頻度を見てから | 記述の修正で済む部分を先に |
+| 中 | plan の scope 重なり・テスト無しが unknown、carry の反映が goal に無い | 採る（goal 定性に「carry された差し戻しが該当タスクの notes にある」を足す）。scope_overlap の追加は頻度を見てから | — |
+| 中 | review の kind 未定義、未実装の機能の指摘 | 採る（kind の値を記述に書く。未実装を changes_requested に含める） | 記述の修正のみ |
+| 中 | design / analyze が自分の写しだけを見る | 採る（定性を reads 基準に書く） | 記述の修正のみ。指標は写しのまま |
+| 中 | 二段続けて戻ると carry が消える | 採る（二段目の辺にも同じ鍵を carry する） | adopting.md 3.1 の指針どおり。定義の変更は carry の追加だけ |
+| 中 | release の rejected が見送りしか扱わない | 頻度を見てから | ペルソナの拒否理由が一種類しか無い。種類が出たら戻り先を分ける |
+| 中 | report.json の切り詰め | 採る（要旨を先頭に、全結果は別ファイル） | 本体と成果物の形の変更で、分類体系は変えない。`max_file_chars` でも緩和できる |
+| 低 | unit_test の定性に数値が無い、テスト 0 件 | 採る（定性に 0.9 を書く。tests_failing に「一件も集まらない」を含める） | 記述の修正のみ |
+| 低 | code / release の「変更を含む」・版・ダイジェスト | 採る（code に「changed_paths が空でない」の指標。release は base の版を manifest に） | 指標の追加のみ |
+| 低 | 稀な場合（単独の要件の実現不能ほか） | 頻度を見てから | — |
+
 ### 推奨
 
-処置の一覧を承認。14.1 は文言の整合なので採用を推奨。14.2〜14.4 は小さな契約の拡張で、software factory の再検証を伴うので F5 の v1.0 前に実装することを推奨。
+処置の一覧を承認。14.1 は文言の整合なので採用を推奨。14.2〜14.4 は小さな契約の拡張で、software factory の再検証を伴うので F5 の v1.0 前に実装することを推奨。第三者レビュー 11 件は上の表のとおり（採る 8、頻度を見てから 3）。
 
 ### 決定
 
