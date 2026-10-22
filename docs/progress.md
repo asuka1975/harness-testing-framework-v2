@@ -376,7 +376,18 @@ $ uv run python -m htf.testing.spec schema/examples/negative/subworkflow_ref__sa
   … [subworkflow_ref] 子の workflow.name 'minimal' が親と同じ（束縛の鍵が衝突する）   1 finding(s)
 ```
 
-公開（コマンドと結果は本節の末尾に追記）。
+公開（人間の指示「GitHub に public で push」による）:
+
+```text
+$ git tag -a v0.1.0 -m "v0.1.0: …"
+$ gh repo create harness-testing-framework-v2 --public --source=. --remote=origin --push
+  → https://github.com/asuka1975/harness-testing-framework-v2 PUBLIC、main を push
+$ git push origin v0.1.0                              → [new tag] v0.1.0
+$ gh release create v0.1.0 --title "v0.1.0" --notes … → https://github.com/asuka1975/harness-testing-framework-v2/releases/tag/v0.1.0
+$ gh run list（初回の GitHub Actions）                 → main: success（ruff check / format --check / pytest --cov / runtime 90% の段。https://github.com/asuka1975/harness-testing-framework-v2/actions/runs/39698988217）
+```
+
+LICENSE は置いていない（人間が決める。無ければ既定で all rights reserved）。
 
 ### 動的ワークフローの宣言（第5.10節）: `f3-test-runners`
 
