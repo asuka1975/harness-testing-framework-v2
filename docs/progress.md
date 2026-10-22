@@ -4,25 +4,15 @@
 
 ## 次にやること
 
-**F3 は完了し、v0.1 の公開承認（人間ゲート）で止まっている。** 検証役 `f3-test-runners` の報告を処理し（マルコフ合成の負例が見かけ上だった点を修正）、131 passed、runtime 92.5%、全体 93%。版は 0.1.0（tag 未）。
+**v0.1 のゲートは通過した**（2026-10-22。ADR-012 / ADR-013 承認、契約への提案は推奨どおり実装、GitHub の public リポジトリ `asuka1975/harness-testing-framework-v2` に push、tag v0.1.0 と Release）。次は **F4（software factory）**。
 
-1. **人間ゲート（v0.1）**: docs/decisions.md の決定欄に回答する
-   - ADR-012「決定」: 12.1〜12.12、12.17〜12.24（実装済みの小決定）の承認。契約への提案 12.13〜12.16、12.25〜12.26 の採否
-   - ADR-013「決定」: 13.1〜13.19 の承認。「閾値について人間に見せる懸念」を読んだ上で、閾値は仮置きのままでよいか
-   - v0.1 として公開してよいか（`git tag v0.1.0`、GitHub Release、リモートの設定と push）
-2. **承認後（次のセッション）**:
-   - 承認された契約への提案を実装（12.13 / 12.16 は検査器に性質を追加 + 負例、12.14 / 12.15 / 12.25 / 12.26 は CONTRACT.md と types.py の改訂）。契約の変更は人間承認の後なので保護ファイルを編集してよい
-   - `git tag v0.1.0`（人間が push）
-   - F4 の準備: 第7節の二つ目のプロンプトで人間が別セッションを起動する。utilizer セッションが読めるのは adopting.md、harness-plan-template.md、toy-minimal、公開 API の文書だけ。harness-plan-template.md は F5 の成果物なので、F4 の前に最低限の雛形を置くかを人間に確認する（置かなければ adopting-gaps.md に「雛形が無い」が記録されるだけ）
-3. **F4 の間の通常セッション**: adopting-gaps.md を読んで本体を直す往復（第5.8節。toy-minimal で検証してから software factory で再検証）
+1. **F4 の準備（通常セッション）**: `docs/harness-plan-template.md` は F5 の成果物だが、F4 の利用者セッションは「adopting.md、雛形、toy-minimal、公開 API の文書」だけを読む。雛形が無いまま始めるか、最低限の雛形を先に置くかを人間に確認する（置かなければ adopting-gaps.md に「雛形が無い」と記録されるだけで、F4 は始められる）
+2. **F4 の利用者セッション（人間が起動）**: 計画書第7節の二つ目のプロンプト。読んでよいのは docs/adopting.md、docs/harness-plan-template.md、examples/toy-minimal/、公開 API の文書（`htf` の docstring）。本体・plan.md・progress.md・decisions.md は読まない。成果は examples/software-factory/、足りないことは examples/software-factory/docs/adopting-gaps.md
+3. **F4 の往復（通常セッション）**: adopting-gaps.md を読んで本体を直す（toy-minimal で検証してから software factory で再検証。第5.8節）。adopting-gaps.md が空になるまで
+4. **F4 の人間ゲート**: software factory の workflow.yaml のレビュー（MECE、観測可能性、戻り先）。人間に出す前に検証役の事前レビュー
+5. **v0.1 で見送った改善**（文書化のみ）: 注入に carry を添える、マルコフ比較の粒度、expectations の区間を SE 倍数で書く形式。F4 の基準が出てから
 
-**人間不在の間に、定義と runtime の振る舞いで変えたもの（ゲートで一覧として見る）**:
-- 承認どおりの実装: G1 / G3 / G5 の記述変更、G4 (b) の集約規則 `state: unknown`、toy-minimal の版 0.2、plan.md の改訂（reports/、ステージ数の数え方、7 種の遷移）
-- toy-minimal の定義: collect の `writes` と draft の `reads` に `grounds/` を追加（根拠ファイルの置き場。第5.4節の「ワークフロー定義の問題は workflow.yaml へ」の範囲。分類体系は変えていない）
-- runtime の振る舞いで契約文書と差が出たもの（契約は変えず提案に積んだ）: 子 run 起動前に workspace 配下を空にする（12.17 → 提案 12.26）、記録は試行単位で確定（12.18）、ゲート不成立の escalate に ContinueAsGoal で通す（12.19）、契約適合テストの範囲（→ 提案 12.25）、開始時スナップショットの取得 `start`（→ 提案 12.14）
-- 検査器の性質の追加はしていない（12.13 / 12.16 は提案のまま）
-
-運用規則: 完了条件のテストは実装より先に別コミット。テストの変更も別コミットにして理由を本ファイルに残す（ADR-013 13.19）。expectations 形式の改訂は F3 内で 2 回まで（結果 0 回）。検証役の予算は探針を含むなら 25 万トークン。
+運用規則: 完了条件のテストは実装より先に別コミット。テストの変更も別コミットにして理由を本ファイルに残す。検証役の予算は探針を含むなら 25 万トークン。リモートが付いたので、push は人間の指示があった時だけ（本セッションは指示あり）。
 
 `reports/` の構造: `reports/verification/<task-id>/report.md`、`reports/dynamic/<id>/record.md`、`reports/triage/`。
 
@@ -80,6 +70,12 @@
 - 検証役 `f3-test-runners`（`reports/verification/f3-test-runners/report.md`）: 完了条件 1〜3、5〜7 は満たす。4 の後半「split でマルコフ予測が外れる」は、テストが合成に子 run 数を渡さず既定 1 で合成していたための見かけ（観測どおり子 2 で合成すると差 0.010）。探針 6 件（ネットワーク禁止での全テスト、区間の余裕、p 値の種依存、注入、合成の余裕、オラクル検証、成果物との整合）。予算内（約 15.6 万トークン、14 分）
 - テストと構成の変更を先に別コミット（e7ef63f、7 件失敗）→ 修正: 合成は子 run 数が無ければ ValueError（B1）、split 構成を主張ごとに持続する振る舞いに（T1。奇数番目の主張は常に stuck → run の結果に効く）、注入の鍵を (workflow, stage, 進入回数) にして定義と照合（B3 / B4）、`verifiable`（B5）、注入由来をトリアージで既定除外（B6）、下流の終端 `end:<status>`（B7）、split の expectations を使う（T3）、失敗した主張を `pick` で選ぶ（T4）
 - 閾値の懸念（報告第 3 節）を ADR-013 に転記し、ゲートで人間が読む形にした。B8（テストの変更が実装コミットに混ざった）は運用規則として ADR-013 13.19 に記録
+
+**v0.1 のゲート通過と公開（人間の決定「12. 承認。提案は推奨を選択、2. 承認。閾値は仮置き、3. GitHub に public で push。いずれもあなたの作業」）**
+
+- decisions.md: ADR-012 / ADR-013 の決定欄に承認を記録。契約への提案 12.13〜12.16、12.25〜12.26 を推奨どおり実装（完了条件を先に別コミット 385144d、6 件失敗 → 実装 bae80b4）: 検査器に `subworkflow_ref`（親子で name 重複）と `subworkflow_user_input`、契約に `start`、`Escalation.cause` に `phase_gate_failed`、CONTRACT 第 7・8 節の改訂
+- README.md を追加。tag v0.1.0、GitHub の public リポジトリ `harness-testing-framework-v2` を作成して push、Release v0.1.0（下記の検証の要旨）
+- 保護ファイル（contract/、schema/examples の負例、plan.md の改訂）の編集はすべて人間の承認の後
 
 ### 未完了と理由
 
@@ -363,6 +359,24 @@ $ uv run pytest -q --cov=htf.runtime --cov-fail-under=90  → Required test cove
 $ uv run pytest -q --cov=htf                               → TOTAL 93%
 $ uv run python -m htf.testing.spec examples/toy-minimal/workflow.yaml --metrics examples/toy-minimal/metrics/manifest.json → 0 finding(s)
 ```
+
+**v0.1 ゲート通過後（契約への提案の実装）**
+
+```text
+$ uv run pytest -o addopts="" -q tests/test_checker.py tests/test_contract.py tests/test_runtime_child_user.py   （実装前、385144d）
+FAILED test_negative_reports_expected_code[subworkflow_ref__same_name.yaml] / [subworkflow_user_input__child_asks.yaml] /
+FAILED test_every_code_has_a_negative_and_vice_versa / test_runtime_protocol_includes_start_and_three_operations /
+FAILED test_escalation_cause_includes_phase_gate_failed / test_child_user_input_is_rejected_statically
+6 failed, 39 passed
+$ uv run ruff check .                                      → All checks passed!
+$ uv run pytest -o addopts="" -q                           → 136 passed in 64.55s
+$ uv run pytest -q --cov=htf.runtime --cov-fail-under=90  → Required test coverage of 90% reached. Total coverage: 92.52%
+$ uv run python -m htf.testing.spec examples/toy-minimal/workflow.yaml --metrics …   → 0 finding(s)
+$ uv run python -m htf.testing.spec schema/examples/negative/subworkflow_ref__same_name.yaml --metrics schema/examples/metrics.json
+  … [subworkflow_ref] 子の workflow.name 'minimal' が親と同じ（束縛の鍵が衝突する）   1 finding(s)
+```
+
+公開（コマンドと結果は本節の末尾に追記）。
 
 ### 動的ワークフローの宣言（第5.10節）: `f3-test-runners`
 
