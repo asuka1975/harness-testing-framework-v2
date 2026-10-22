@@ -26,6 +26,10 @@ CI は三段（`.github/workflows/ci.yml`）: 常時（整合性検査・決定�
 
 Python 3.12 以上、依存は jsonschema と PyYAML。
 
+## ライセンス
+
+GNU General Public License v3.0 以降（GPL-3.0-or-later）。全文は `LICENSE`。
+
 ## 状態
 
 v1.0: 二つの玩具（toy-minimal、software-factory 版 0.2）で全ランナーが LLM なしで通り、参照ランタイムが契約適合テストを通る。adopting.md と雛形は software factory を実例にした完成版、CI は三段、分類体系とハーネスの版は expectations・E2E 計画・コーパスの `workflow_version` で同期する。実 LLM による方法検証（分類器の較正）は v1.0 の後（ADR-006）。
