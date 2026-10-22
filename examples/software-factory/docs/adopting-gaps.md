@@ -13,7 +13,7 @@ software-factory を htf の上に作る時に、`docs/adopting.md`、`docs/harn
 | htf 本体を直した（toy-minimal の再現テストを先に） | G-04（`pass` の鍵が無ければ渡さず起動）、G-05（即答した回答も累積）、G-06（親子のステージ id の重複を検査）、G-08（`max_file_chars`）、G-16（計画の `overrides`） |
 | 設定 / CI | G-07（ruff の fixtures 除外）、G-03（CI に software-factory のテスト）、G-15（ガードのテストを外した） |
 | 文書（adopting.md と雛形） | G-01、G-02、G-09、G-10、G-12、G-13、G-17、G-20、G-21、G-22、G-23 |
-| 文書 + 契約への提案（承認済み。F5 の v1.0 前に実装） | G-11（14.2 `StageContext.entry` / `reentry`）、G-18（14.3 `child_outcomes`）、G-19（14.4 `ask(..., context=)`）、G-04 の文言（14.1） |
+| 文書 + 契約への提案（承認済み。実装済み） | G-11（14.2 `StageContext.entry` / `reentry`）、G-18（14.3 `child_outcomes`）、G-19（14.4 `ask(..., context=)`）、G-04 の文言（14.1） |
 | 解消しない（理由を記録） | G-14（`--metrics-module` はパッケージ用。ハイフン名のディレクトリではマニフェスト） |
 
 ## G-01 [文書] 読めない文書への参照

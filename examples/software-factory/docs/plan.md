@@ -1,6 +1,6 @@
 # software-factory 計画書
 
-`docs/harness-plan-template.md`（最低限版）の節に沿って埋めたもの。各節の「完了条件」は実行できる検査で書き、結果を併記する。雛形と adopting.md で判断できなかったことは `adopting-gaps.md`（G-xx）。
+`docs/harness-plan-template.md`（完成版。作成時は最低限版）の節に沿って埋めたもの。各節の「完了条件」は実行できる検査で書き、結果を併記する。雛形と adopting.md で判断できなかったことは `adopting-gaps.md`（G-xx）。
 
 **版 0.2**（2026-10-22。htf の ADR-014「全て推奨で」の決定を受けて、htf の通常セッションが定義と本体を更新した。第 1.1 節と Codex のレビューの採用分。差分は `workflow.yaml` の冒頭と第 1 節）。
 
@@ -136,6 +136,7 @@
 - 分類体系の版（`workflow.version`）とハーネスの版を同じ変更で上げる
 - CI の段階（htf の `.github/workflows/ci.yml`、`docs/maintenance.md` 第 4 節）: 整合性検査・決定論テスト・契約適合・トリアージは常時（約 1 分）、オラクル検証はナイトリー（`-m oracle`）、分布と E2E は手動（`-m "distribution or e2e"`。約 2 分）。このハーネスのテストもその三段で走る
 - 版の同期: expectations と E2E 計画は `workflow_version: "0.2"` を持ち、runner が定義の版と照合する。定義を変えたら maintenance.md 第 3 節の順
+- ハーネスの版: `examples/software-factory/__init__.py` の `__version__`（定義の版 `workflow.version` と同じ変更で上げる。今は 0.2）
 - 完了条件: 維持の手順書 → **済**（htf の `docs/maintenance.md`。このハーネス固有の担当と頻度は実 LLM を入れる段で決める）
 
 ## 付録: この作業で当たった止まる条件

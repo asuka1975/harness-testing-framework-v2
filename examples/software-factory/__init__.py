@@ -11,3 +11,7 @@ htf.testing.harness.load_example_package(<このディレクトリ>, "software_f
   tests/                                 テスト（uv run pytest examples/software-factory/tests）
   docs/                                  計画書、進捗、adopting-gaps
 """
+
+__version__ = (
+    "0.2"  # ハーネスの版。定義の workflow.version と同じ変更で上げる（docs/maintenance.md 第 3 節）
+)
