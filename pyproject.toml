@@ -1,6 +1,6 @@
 [project]
 name = "harness-testing-framework"
-version = "1.0.0"
+version = "1.0.1"
 description = "ワークフロー型エージェントハーネスのための汎用テスティングフレームワーク"
 requires-python = ">=3.12"
 license = { text = "GPL-3.0-or-later" }

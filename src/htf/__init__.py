@@ -4,4 +4,4 @@
 公開 API は contract / runtime / testing の各サブパッケージにある。
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
