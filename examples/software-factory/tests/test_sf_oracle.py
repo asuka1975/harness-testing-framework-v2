@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import math
 from collections import Counter
 
 import pytest
@@ -84,8 +85,12 @@ def test_confusion_classifier_reproduces_the_expected_kappa(corpus):
     confusion = _confusion(set(labels))
     truth_corpus = _with_truth(corpus)
     report = verify_oracle(ConfusionClassifier(confusion, seed=11), truth_corpus, reruns=3)
-    assert report.kappa == pytest.approx(expected_kappa(confusion, priors), abs=0.1)
-    assert report.accuracy == pytest.approx(ACCURACY, abs=0.08)
+    # 種つきの分類器は文書の内容で乱数を決めるので、同じ文書は同じ答えになる。有効な標本は一意な文書の数
+    # （同じ変種の code / check の文書は台本をまたいで同一）。許容幅はその数から 3 標準誤差で取る
+    unique = len({item.document for item in corpus})
+    tolerance = 3 * math.sqrt(ACCURACY * (1 - ACCURACY) / unique)
+    assert report.kappa == pytest.approx(expected_kappa(confusion, priors), abs=max(0.1, tolerance))
+    assert report.accuracy == pytest.approx(ACCURACY, abs=tolerance)
     assert report.rerun_agreement == pytest.approx(1.0)  # 種つき: 同じ入力に同じ答え
 
     calibrated = ConfusionClassifier(confusion, seed=11, confidence="calibrated", priors=priors)

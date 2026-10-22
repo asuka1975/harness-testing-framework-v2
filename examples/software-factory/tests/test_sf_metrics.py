@@ -23,7 +23,7 @@ SLUG_TASK = {
     "tests": ["tests/test_slug.py"],
 }
 
-# 変種 → (build, lint, scope, unit_tests_passed, unit_coverage >= 0.9, スイート全体が通る)
+# 変種 → (build_passed, lint_clean, changed_paths_in_scope, unit_tests_passed, unit_coverage >= 0.9, スイート全体が通る)
 EXPECTED = {
     "correct": (True, True, True, True, True, True),
     "failing": (True, True, True, False, True, False),
@@ -40,7 +40,7 @@ EXPECTED = {
 def _snapshot(files: Path, memory: dict, stage: str) -> Snapshot:
     return Snapshot(
         workflow="implement-task",
-        version="0.1",
+        version="0.2",
         stage_id=stage,
         moment="end",
         ordinal=1,
@@ -50,20 +50,25 @@ def _snapshot(files: Path, memory: dict, stage: str) -> Snapshot:
 
 
 @pytest.mark.parametrize("variant", sorted(EXPECTED))
-def test_code_and_unit_test_metrics_per_variant(variant, tmp_path):
+def test_code_check_and_unit_test_metrics_per_variant(variant, tmp_path):
+    """版 0.2: code の指標は repo/ の差分、check の指標は check.json の記録、unit_test の指標は unit/results.json。"""
     build, lint, scope, unit_ok, cov_ok, suite_ok = EXPECTED[variant]
     repo = tmp_path / "repo"
     tc.materialize(repo, SLUG_TASK["features"], variant)
     before = tc.files_of(repo)
-    snap = _snapshot(tmp_path, {"task": SLUG_TASK}, "code")
+    assert m.changed_paths_nonempty(_snapshot(tmp_path, {"task": SLUG_TASK}, "code")) is True
+    (tmp_path / "check.json").write_text(
+        json.dumps(tc.check(repo, SLUG_TASK["scope"]), ensure_ascii=False), encoding="utf-8"
+    )
+    snap = _snapshot(tmp_path, {"task": SLUG_TASK}, "check")
     assert m.build_passed(snap) is build
     assert m.lint_clean(snap) is lint
     assert m.changed_paths_in_scope(snap) is scope
 
     result = tc.run_tests(repo, SLUG_TASK["tests"])
-    report = tmp_path / "unit" / "report.json"
-    report.parent.mkdir()
-    report.write_text(json.dumps({"result": result}), encoding="utf-8")
+    results = tmp_path / "unit" / "results.json"
+    results.parent.mkdir()
+    results.write_text(json.dumps({"result": result}), encoding="utf-8")
     snap = _snapshot(tmp_path, {"task": SLUG_TASK}, "unit_test")
     assert m.unit_tests_passed(snap) is unit_ok
     if cov_ok is None:

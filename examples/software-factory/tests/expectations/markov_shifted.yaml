@@ -1,5 +1,5 @@
-# ずらした基準（落ちるべきもの）: unit_test の初回の goal を 0.9 以上、run 全体の completed を 0.8 以上と要求する
-# （構成の理論値は 0.753 と 0.55 前後）
+# ずらした基準（落ちるべきもの）: unit_test の初回の goal を 0.9 以上、run 全体の completed を 0.95 以上と要求する
+# （構成の理論値は 0.76 と 0.83 前後。版 0.2 では code の失敗を子の中で直すので completed が上がった）
 name: markov_shifted
 origin: { kind: workflow_start }
 runs: 200
@@ -8,4 +8,4 @@ stages:
   unit_test:
     first: { goal: { min: 0.9 } }
 outcomes:
-  completed: { min: 0.8 }
+  completed: { min: 0.95 }

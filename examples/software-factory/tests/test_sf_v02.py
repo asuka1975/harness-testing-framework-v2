@@ -160,7 +160,7 @@ def test_carry_closure(workflow):
 
 def test_aggregate_covers_every_child_failure(workflow):
     rules = workflow.stage("implement").subworkflow.aggregate
-    pairs = [(r.state, r.when.kind, r.when.stage, r.when.state) for r in rules]
+    pairs = [(r.state, r.quantifier, r.outcome.stage, r.outcome.state) for r in rules]
     unknown_first = [p for p in pairs if p[0] == "unknown"]
     assert pairs[: len(unknown_first)] == unknown_first  # 明示の escalate は上に置く
     assert {(p[2], p[3]) for p in unknown_first} == {

@@ -1,6 +1,7 @@
 # E2E カバレッジ計画（版 0.2）: 親子の全 (stage, class) を、誘発（台本 fixtures/scenarios/）か注入（n 回目の進入の
 # Verdict の差し替え）で踏む。goal も一つのクラスとして数える。unknown を踏む run は human で止めるか続ける。
 # 注入は Verdict だけを差し替える（成果物と memory は本体のまま）ので、carry を運ぶ end_state は誘発で踏む。
+# 注入は 4 つ: release / unknown（成果物は承認済みのまま判定だけ unknown）と、次の 3 つ。
 # 例外（htf の ADR-014 14.6.8）: integrate / merge_failed、verify / coverage_short、verify / lint_dirty は
 # このフィクスチャの世界では起きない（scope は重ならず、scope 外・lint・カバレッジ不足は子の check と unit_test が
 # 先に止める）ので注入で踏む。本体の論理は tests/test_sf_v02.py で手作りの成果物に対して確かめる。
@@ -49,4 +50,4 @@ targets:
   - { workflow: implement-task, stage: unit_test, state: goal, induce: happy }
   - { workflow: implement-task, stage: unit_test, state: tests_failing, induce: tasks_unfinished }
   - { workflow: implement-task, stage: unit_test, state: coverage_low, induce: coverage_low_fixed }
-  - { workflow: implement-task, stage: unit_test, state: unknown, inject: { scenario: happy, entry: 1 }, human: [continue_as_goal] }
+  - { workflow: implement-task, stage: unit_test, state: unknown, induce: unit_test_unknown }

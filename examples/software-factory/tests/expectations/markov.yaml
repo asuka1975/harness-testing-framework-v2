@@ -1,10 +1,15 @@
-# 分布テストの基準（fixtures/profiles/markov.yaml の構成）。N と種もここ。区間は仮置き（htf の閾値の扱いに従い、
-# 較正で見直す）。根拠: ステージごとの区間は構成の分布から計算した理論値 ± 約 3 標準誤差（N = 200 run での
-# 評価数から）。run 全体の区間は試走（100 run）の観測 0.55 とマルコフ合成の予測 0.558 を中心に ±0.13。
-#   code first: goal = 1 - (lint + broken + out_of_scope) = 0.93 / reentry: 直した変更しか出ない → 1.0
-#   unit_test first（code が goal の時）: goal = 0.70 / 0.93 = 0.753、tests_failing = 0.15 / 0.93 = 0.161、
-#     coverage_low = 0.08 / 0.93 = 0.086 / reentry: goal 0.85、tests_failing 0.10、coverage_low 0.05
-#   design / plan / review は構成の分布そのもの（plan の goal は goal + two_tasks）
+# 分布テストの基準（fixtures/profiles/markov.yaml の構成。版 0.2）。N と種もここ。区間は仮置き（htf の閾値の扱いに
+# 従い、較正で見直す）。根拠: ステージごとの区間は構成の分布から計算した理論値 ± 約 3 標準誤差（N = 200 run での
+# 評価数から）。run 全体の区間は試走（200 run）の観測 0.815 とマルコフ合成の予測 0.831 を中心に ±0.12。
+#   code first / reentry: 変更を当てれば必ず goal（ビルド・lint・scope の検査は check に移った）→ 1.0
+#   check first: goal = 1 - (lint + broken + out_of_scope) = 0.93、build_failed 0.02、lint_failed 0.03、out_of_scope 0.02
+#     / reentry: 直した変更（reentry の分布）は検査を必ず通る → 1.0
+#   unit_test first（check を通った変更。初回の 0.93 と、check の後に直した 0.07 の混合）:
+#     tests_failing = 0.15 + 0.07 × 0.10 = 0.157、coverage_low = 0.08 + 0.07 × 0.05 = 0.084、goal = 0.76
+#     / reentry: goal 0.85、tests_failing 0.10、coverage_low 0.05
+#   design / plan / review は構成の分布そのもの（plan の goal は goal + two_tasks。design の drops_requirement 0.03 は
+#     plan の design_incomplete に現れる: 0.03 / 0.87 ≈ 0.034）
+#   integrate: このフィクスチャでは衝突も統合後のビルド失敗も起きない → 1.0
 name: markov
 origin: { kind: workflow_start }
 runs: 200
@@ -15,20 +20,27 @@ stages:
   analyze:
     first: { goal: { min: 1.0 } }
   design:
-    first: { goal: { min: 0.83, max: 0.96 }, requirements_conflict: { min: 0.02, max: 0.11 }, unknown: { max: 0.09 } }
+    first: { goal: { min: 0.80, max: 0.94 }, requirements_conflict: { min: 0.02, max: 0.11 }, unknown: { max: 0.09 } }
   plan:
-    first: { goal: { min: 0.77, max: 0.92 }, design_gap: { min: 0.05, max: 0.16 }, unknown: { max: 0.10 } }
+    first: { goal: { min: 0.74, max: 0.90 }, design_gap: { min: 0.04, max: 0.16 }, design_incomplete: { max: 0.09 }, unknown: { max: 0.10 } }
     reentry: { goal: { min: 0.85 }, design_gap: { max: 0.0 } }
   code:
-    first: { goal: { min: 0.89, max: 0.96 }, unknown: { min: 0.04, max: 0.11 } }
+    first: { goal: { min: 1.0 } }
+    reentry: { goal: { min: 1.0 } }
+  check:
+    first: { goal: { min: 0.88, max: 0.96 }, build_failed: { max: 0.06 }, lint_failed: { max: 0.07 }, out_of_scope: { max: 0.06 } }
     reentry: { goal: { min: 0.99 } }
   unit_test:
-    first: { goal: { min: 0.69, max: 0.81 }, tests_failing: { min: 0.11, max: 0.21 }, coverage_low: { min: 0.05, max: 0.13 } }
-    reentry: { goal: { min: 0.75 }, tests_failing: { max: 0.18 }, coverage_low: { max: 0.11 } }
+    first: { goal: { min: 0.70, max: 0.82 }, tests_failing: { min: 0.10, max: 0.21 }, coverage_low: { min: 0.04, max: 0.13 } }
+    reentry: { goal: { min: 0.78 }, tests_failing: { max: 0.16 }, coverage_low: { max: 0.11 } }
+  integrate:
+    first: { goal: { min: 1.0 } }
+  verify:
+    first: { goal: { min: 0.78, max: 0.96 }, regression: { max: 0.12 }, criteria_unmet: { max: 0.14 } }
   review:
-    first: { goal: { min: 0.66, max: 0.89 }, changes_requested: { min: 0.05, max: 0.21 }, design_flaw: { max: 0.11 }, unknown: { max: 0.11 } }
+    first: { goal: { min: 0.68, max: 0.88 }, changes_requested: { min: 0.05, max: 0.20 }, design_flaw: { max: 0.11 }, unknown: { max: 0.11 } }
   release:
     first: { goal: { min: 1.0 } }
 outcomes:
-  completed: { min: 0.42, max: 0.68 }
-  aborted: { min: 0.32, max: 0.58 }
+  completed: { min: 0.70, max: 0.92 }
+  aborted: { min: 0.08, max: 0.30 }

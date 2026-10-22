@@ -33,10 +33,10 @@ def test_plan_reaches_every_target(workflow, tmp_path):
     report = run_plan(load_plan(PLAN_PATH), workflow, H.make_plan_runner, workspace=tmp_path)
     assert report.uncovered == []
     assert report.coverage == 1.0
-    # 注入 5: release / unknown、unit_test / unknown と、このフィクスチャでは起きない integrate / merge_failed、
-    # verify / coverage_short、verify / lint_dirty（ADR-014 14.6.8。本体の論理は test_sf_v02.py）
-    assert len(report.injected) == 5
-    assert len(report.induced) == len(report.targets) - 5
+    # 注入 4: release / unknown と、このフィクスチャでは起きない integrate / merge_failed、verify / coverage_short、
+    # verify / lint_dirty（ADR-014 14.6.8。本体の論理は test_sf_v02.py）。unit_test / unknown は台本で誘発する
+    assert len(report.injected) == 4
+    assert len(report.induced) == len(report.targets) - 4
 
 
 def test_child_run_counts_vary_with_the_plan(markov_samples):
