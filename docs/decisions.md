@@ -241,7 +241,7 @@ unknown への分類、確信度の閾値未満、rollback の max 超過は人�
 
 ## ADR-006 実 LLM による方法検証の場所と分類器の後ろ側
 
-- 状態: 先送り（強制点 F5 で決める。ここには下書きだけを置く）
+- 状態: 決定（2026-10-22 人間が v1.0 ゲートで承認。(a)）
 - 強制点: F5
 - 起票: 2026-10-22
 
@@ -270,7 +270,7 @@ unknown への分類、確信度の閾値未満、rollback の max 超過は人�
 
 ### 決定
 
-（F5 で記入）
+**(a)。** 2026-10-22、人間の決定（v1.0 ゲートで「承認します」。ADR-015 V2）。v1.0 の後に software factory の一ステージを recorder 経由で実 LLM にし、分類器の後ろ側は System One アダプタ経由の LLM で着手して Jev が使えれば差し替える。閾値はその較正結果で決め、根拠を記録する。状態: 決定。
 
 ---
 
@@ -758,7 +758,7 @@ F4 の利用者セッションが adopting.md と雛形だけから software fac
 
 実装の記録（同日）: 14.1 CONTRACT 第 7 節 1 の文言。14.2 `StageContext.entry` / `reentry`（`RunContext`、runtime の進入回数をそのまま渡す）。14.3 `StageContext.child_outcomes`（子を持つステージの本体に、その進入の `ChildOutcome` の列）。14.4 `UserIO.ask(..., context=None)`（累積列は None の時は渡さない。recorder は要求の一部として記録）。14.5 (a) `Runner(max_document_chars=)` / `project(..., max_document_chars=)`（明示の印で切る）、(b) 投影の順序を memory_in → writes → reads に（CONTRACT 第 5.4 節、adopting.md 3.6。`MarkerClassifier` は writes 節だけを見る）。完了条件は `tests/test_f4_contract_proposals.py`（先に別コミット）。htf 153 passed、software factory は追従（`PersonaUserIO` の署名）して再検証。
 
-### 14.6 版 0.2 の実装で確定する小決定（承認の範囲内の実装の詳細。F5 ゲートで承認）
+### 14.6 版 0.2 の実装で確定する小決定（承認の範囲内の実装の詳細。2026-10-22 v1.0 ゲートで承認）
 
 | # | 決定 | 理由 |
 | --- | --- | --- |
@@ -778,7 +778,7 @@ F4 の利用者セッションが adopting.md と雛形だけから software fac
 
 ## ADR-015 F5 で確定した小決定（v1.0 の公開と維持）
 
-- 状態: 提案（v1.0 ゲートで承認）
+- 状態: 決定（2026-10-22 人間が承認）
 - 強制点: F5（v1.0 の公開）
 - 起票: 2026-10-22
 
@@ -812,4 +812,4 @@ F4 の利用者セッションが adopting.md と雛形だけから software fac
 
 ### 決定
 
-（未記入。v1.0 ゲート）
+**全て承認。** 2026-10-22、人間の決定（「承認します」）。V1 v1.0 の公開（タグ `v1.0.0`、GitHub Release、push）、V2 ADR-006 は (a)、V3 ADR-014 14.6 の小決定 11 件、V4 ADR-015 15.1〜15.6。状態: 決定。

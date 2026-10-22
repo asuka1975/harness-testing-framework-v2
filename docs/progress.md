@@ -4,6 +4,10 @@
 
 ## 次にやること
 
+**v1.0 の人間ゲートを通過（「承認します」。ADR-015 V1〜V4）。v1.0 を公開した（タグ `v1.0.0`、GitHub Release、push）。次は ADR-006 (a): software factory の一ステージを recorder 経由で実 LLM にし、分類器を較正して閾値を決める（v1.0 の後の最初の作業。計画書の範囲外なので、着手前に人間と作業単位を決める）。**
+
+（以下は v1.0 ゲート前の状態の記録）
+
 **F5（v1.0）の本体と第三者検証が済み、v1.0 の人間ゲートで止まっている。** 検証役 `f5-release` の判定: F5 の完了条件 5 項目すべて「満たす」、先送りの第三者判定（G-04/05/06/08/16、14.2〜14.5、同期バージョン管理）は固定されている、高の問題なし（`reports/verification/f5-release/report.md`、`reports/dynamic/f5-release/record.md`）。未 push のコミットあり（F4 取り込み以降。push は人間の指示で）。
 
 **v1.0 ゲートで決めてほしいこと（ADR-015「ゲートで決めてほしい事項」V1〜V4）**: V1 v1.0 の公開承認（タグ `v1.0.0`、GitHub Release、push）、V2 ADR-006（推奨 (a): v1.0 の後に software factory の一ステージを recorder 経由で本物にし、較正で閾値を決める）、V3 ADR-014 14.6 の小決定 11 件の承認、V4 ADR-015 15.1〜15.6 の承認。承認後の作業: タグと Release と push（指示で）、ADR の決定欄の記入。公開後の候補: carry の閉包テストの雛形化（検査器は閉包を見ない設計のまま）、GitHub Actions 上での三段の実走の確認。
@@ -107,6 +111,7 @@ F5 の作業単位（第5.1節。この順。完了条件は `tests/test_f5_rele
 - **F4 ゲートの決定「全て推奨で」を記録**（ADR-014 の決定欄と、版 0.2 の実装で確定する小決定 14.6.1〜14.6.11。adopting-gaps.md に処置の状況の表）
 - **software factory を版 0.2 に**（人間の承認を受けた定義の変更に本体を追従させるため、通常セッションが利用者の成果物を編集。理由は sf の progress.md に記録）: 完了条件を先に別コミット（`tests/test_sf_v02.py`、台本 26 本、E2E 計画 43 対象、既存テストの改訂。実装前 51 failed / 54 passed / 3 errors）→ 保護ファイル（`workflow.yaml`、`implement-task.yaml`、expectations）を計画エージェントが編集 → 本体（`Check` / `Integrate`、report と results の分離、approval の kind、manifest の base_version、ペルソナ `quality_lead`、指標 28）→ テストの修正を別コミット（aggregate の属性名、check / results.json に合わせた指標テスト、オラクルの許容幅、E2E の注入 4）→ 120 passed。sf の docs（plan.md、progress.md、台本 README）を版 0.2 に更新。adopting.md 3.1 に carry の閉包と `max` の run 全体性を追記
 - 誘発できないクラス 3 つ（integrate / merge_failed、verify / coverage_short、verify / lint_dirty）は注入で踏み、本体の論理は手作りの成果物で単体テスト（ADR-014 14.6.8）
+- **v1.0 ゲートの決定を記録**（ADR-006 (a)、ADR-014 14.6、ADR-015 の決定欄）。公開の手順は本日付の末尾の「公開」に
 - **F5-5 検証役 `f5-release`**（宣言 → 起動 → 受け入れ。記録は `reports/dynamic/f5-release/record.md`）: 判定はすべて「満たす」、探針 4 本・40 項目で製品の不具合 0、高の問題なし。処理: 探針 2 本を退行テストに（人間の Rerun / RollbackTo の下の `ctx.entry`、違う context での再生の `ReplayMismatch`）、低の文書の指摘 4 件を直した（adopting-gaps の要約の時制、sf 計画書の雛形の呼称、雛形第 9 節の読み替え条項、sf の `__version__`）。検査器が carry の閉包を見ないのは設計どおり（ADR-014 G-22）
 - **F5-1〜F5-4（v1.0 の本体）**: 完了条件 `tests/test_f5_release.py` を先に別コミット（15 failed / 1 passed）→ 版 1.0.0（pyproject と `htf.__version__`）、マーカー `oracle`、CI の三段（常時 / ナイトリー / 手動。runtime カバレッジは常時の部分集合で 92.84%）、同期バージョン管理（expectations と E2E 計画の `workflow_version` を runner が照合、コーパスとトリアージの項目に版。toy と sf の expectations・計画に `"0.2"`）、`docs/maintenance.md`（新規）、雛形の完成版（第 0〜9 節 + 付録の骨格を維持。sf の計画書と見出しが一致することをテストで固定）、adopting.md の完成版（規則は不変。第 8 節 実例の一巡、第 9 節 落とし穴）、README、sf 計画書第 9 節、ADR-015（小決定 15.1〜15.6 とゲートで決めてほしい事項 V1〜V4）→ 16 passed
 - **契約への提案 14.1〜14.5 を実装**（承認済み。完了条件 `tests/test_f4_contract_proposals.py` を先に別コミット、10 failed → 実装 → 10 passed）: `StageContext.entry` / `reentry` / `child_outcomes`、`UserIO.ask(..., context=None)`（累積列・recorder・テストダブル・toy と sf のペルソナ）、`Runner(max_document_chars=)` と投影の順序（memory_in → writes → reads。`MarkerClassifier` は writes 節だけを見る）、CONTRACT 第 7 節 1 の `pass` の文言。CONTRACT と adopting.md を改訂。ADR-014 の状態を「決定」に
