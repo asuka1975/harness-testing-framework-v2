@@ -1,0 +1,22 @@
+# ユーザー入出力に文脈を渡す（契約への提案 14.4。ADR-014）。一ステージだけの定義
+workflow:
+  name: ask_context
+  description: 質問に文脈を添える
+  phases:
+    - id: p
+      name: P
+      description: フェーズ
+      goal: { qualitative: 完了, quantitative: {} }
+      stages:
+        - id: ask
+          name: Ask
+          description: 文脈つきで一つ質問し、回答を answer.json に書く
+          user_input: true
+          artifacts: { writes: [answer.json] }
+          goal:
+            qualitative: answer.json に回答がある
+            quantitative:
+              answer_exists: { description: answer.json がある, equals: true }
+          end_state:
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback: []
