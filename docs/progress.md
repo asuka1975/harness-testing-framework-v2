@@ -4,15 +4,17 @@
 
 ## 次にやること
 
-**v0.1 のゲートは通過した**（2026-10-22。ADR-012 / ADR-013 承認、契約への提案は推奨どおり実装、GitHub の public リポジトリ `asuka1975/harness-testing-framework-v2` に push、tag v0.1.0 と Release）。次は **F4（software factory）**。
+**F4 の利用者セッションの成果（software factory）を取り込み、adopting-gaps G-01〜G-23 の往復を一周した。F4 の人間ゲートで止まっている。** 143 passed（htf）、92 passed（software factory、変更なしで再検証）、整合性検査 0 件。未 push のコミットあり（F4 取り込み以降。push は人間の指示で）。
 
-1. **F4 の準備（済）**: 人間の指示で `docs/harness-plan-template.md` の最低限版を置いた（0〜9 節の骨格と付録。F5 で software factory を実例に完成版にする）。F4 の利用者セッションは「adopting.md、雛形、toy-minimal、公開 API の文書」だけを読む
-2. **F4 の利用者セッション（人間が起動）**: 計画書第7節の二つ目のプロンプト。読んでよいのは docs/adopting.md、docs/harness-plan-template.md、examples/toy-minimal/、公開 API の文書（`htf` の docstring）。本体・plan.md・progress.md・decisions.md は読まない。成果は examples/software-factory/、足りないことは examples/software-factory/docs/adopting-gaps.md
-3. **F4 の往復（通常セッション）**: adopting-gaps.md を読んで本体を直す（toy-minimal で検証してから software factory で再検証。第5.8節）。adopting-gaps.md が空になるまで
-4. **F4 の人間ゲート**: software factory の workflow.yaml のレビュー（MECE、観測可能性、戻り先）。人間に出す前に検証役の事前レビュー
-5. **v0.1 で見送った改善**（文書化のみ）: 注入に carry を添える、マルコフ比較の粒度、expectations の区間を SE 倍数で書く形式。F4 の基準が出てから
+1. **人間ゲート（F4）**: 三つ
+   - `examples/software-factory/workflow.yaml` と `implement-task.yaml` のレビュー（goal・end_state・unknown のクラス集合が MECE か、記述が成果物から観測可能か、各 end_state に戻り先があるか）。実ハーネスのレビューの予行演習
+   - 第三者レビューの指摘 11 件（`examples/software-factory/docs/plan.md` 第 1.1 節。高 1: 子 code の失敗が全て unknown → 確認ステージを足す提案。中 7、低 3）の採否。採る場合は分類体系の変更なので `workflow.version` を上げ、台本・E2E 計画・expectations を合わせる
+   - `docs/decisions.md` ADR-014 の決定欄: 処置の一覧の承認、契約への提案 14.1〜14.4 の採否
+2. **承認後（通常セッション）**: 採用された指摘を software factory の定義に反映（版 0.2）、台本・計画・expectations の更新、再検証。承認された契約の提案を実装（toy-minimal で検証 → software factory で再検証）。adopting-gaps.md の各項目に「処置済み（ADR-014）」の印を付ける
+3. **F5**: v1.0（adopting.md の完成版（software factory を実例に）、harness-plan-template.md の完成版、CI のコスト段階（常時 / ナイトリー / 手動）、分類体系とハーネスの同期バージョン管理の方式、docs/maintenance.md）。完了条件: 二つの玩具で全ランナーが通る、adopting-gaps.md が全て処理済み、雛形に software factory を当てはめて矛盾が無い、CI に段階がある、v1.0 として公開（人間ゲート。決定 #6 もここ）
+4. **F5 の検証役**: F4 の往復で入れた本体の修正（G-04 / 05 / 06 / 08 / 16）は toy-minimal のテストで固定したが、第三者判定は F5 の検証役でまとめて行う
 
-運用規則: 完了条件のテストは実装より先に別コミット。テストの変更も別コミットにして理由を本ファイルに残す。検証役の予算は探針を含むなら 25 万トークン。リモートが付いたので、push は人間の指示があった時だけ（本セッションは指示あり）。
+運用規則: 完了条件のテストは実装より先に別コミット。テストの変更も別コミット。検証役の予算は探針を含むなら 25 万トークン。push は人間の指示があった時だけ。software factory（利用者の成果物）の本体コードは、htf の API 変更で必要になった時だけ通常セッションが直し、理由を本ファイルに残す（今回は不要だった）。
 
 `reports/` の構造: `reports/verification/<task-id>/report.md`、`reports/dynamic/<id>/record.md`、`reports/triage/`。
 
@@ -78,6 +80,13 @@
 - 人間の指示「最低限の雛形はおいてください」で `docs/harness-plan-template.md`（最低限版）を追加し push
 - 保護ファイル（contract/、schema/examples の負例、plan.md の改訂）の編集はすべて人間の承認の後
 
+**F4 の往復（利用者セッションの成果の取り込みと adopting-gaps の処置）**
+
+- 利用者セッション（人間が別に起動）の成果 `examples/software-factory/` をそのまま取り込んだ（81433db）: 5 フェーズ 8 ステージ + 子 2、実ツール（compile / ruff / pytest + coverage）の指標、台本 21、E2E 31 対象、テスト 92 件、adopting-gaps G-01〜G-23、第三者レビュー 11 件（利用者セッションが同じ読取制限のサブエージェントで実施）。利用者セッションは本体・plan.md・progress.md・decisions.md を読んでいない（その progress.md に記録）
+- F4 開始に伴うガード（software-factory 不在）を外した（3940915）
+- G-04 / 05 / 06 / 08 / 16 を toy-minimal で再現するテストを先に別コミット（02cb2af、6 件失敗）→ 本体を修正（034c7cf）。G-07 ruff の除外、G-03 CI のステップ、文書 13 件、契約への提案 4 件（ADR-014 14.1〜14.4）、解消しない理由 1 件（G-14）
+- software factory は変更せずに再検証: 92 passed、整合性検査 0 件（本体の修正が利用者の成果物に影響しない）
+
 ### 未完了と理由
 
 - ツールチェーンの骨格（pyproject、CI、.gitignore）: ADR-010 が未決のため作っていない（計画書 F1「決定 #10 が出たらツールチェーンの骨格と CI の雛形を作る」）
@@ -111,6 +120,13 @@
 - 注入に carry を添える（検証役 F3 の B2。今は Verdict だけを差し替え、戻り先は空の carry で動く）
 - マルコフ合成の比較の粒度（13.11。completed / aborted の 2 値は粗い。ステージ別のクラス頻度や run 長の分布に広げる）
 - expectations の区間を「名目 ± k·SE」か信頼区間で書ける形式（13.4。形式の改訂は F4 の基準が出てから）
+
+**F4**
+
+- 人間ゲート（workflow.yaml のレビュー、第三者レビュー 11 件の採否、ADR-014）: 人間の決定待ち
+- 契約への提案 14.1〜14.4: 承認まで未実装（G-11 / G-18 / G-19 は文書で暫定の指針）
+- adopting-gaps.md への「処置済み」の印: 承認後に付ける（利用者の成果物を今は変えない）
+- push: F4 取り込み以降のコミットは未 push（人間の指示で）
 
 ### 発見した問題
 
@@ -158,6 +174,14 @@
 - E2E の注入は親の Runner だけでは子ステージに届かない → inject を子 run に引き継ぐ
 - マルコフ合成は子 run の数が分布から出ないので、観測された子 run 数の分布から引く（13.11）
 - `ConfusionClassifier` は真のラベルが要るので、状態文書の `truth:` 行から読む（テスト専用の約束）
+
+**F4 の往復で見つかったもの（software factory の adopting-gaps。処置は ADR-014）**
+
+- runtime: `pass` の鍵が carry でしか来ないと初回進入で落ちる（G-04 → 無ければ渡さない）。即答と中断が混ざる UserIO で再開後の回答がずれる（G-05 → 即答も累積）。状態文書の切り詰めが固定（G-08 → `max_file_chars`）
+- 検査器: 親子でステージ id が重なると分布の鍵が混ざる（G-06 → `unique_ids`）
+- ランナー: E2E 計画で台本の任意の欄を上書きできない（G-16 → `overrides`）
+- 契約の不足（提案）: 進入回数（G-11）、子 run の終わり方を親の本体に（G-18）、`ask` の文脈（G-19）、`pass` の文言（G-04）
+- 文書の不足 13 件（adopting.md と雛形に反映）。構成: ruff がフィクスチャを見る（G-07）、ハーネスのテストが CI に無い（G-03）、ガードのテスト（G-15）
 
 ### 実行した検証とその結果の要旨
 
@@ -389,6 +413,21 @@ $ gh run list（初回の GitHub Actions）                 → main: success（
 ```
 
 LICENSE は置いていない（人間が決める。無ければ既定で all rights reserved）。
+
+**F4 の往復**
+
+```text
+$ uv run python -m htf.testing.spec examples/software-factory/workflow.yaml --metrics examples/software-factory/metrics/manifest.json → 0 finding(s)
+$ uv run pytest -o addopts="" -q examples/software-factory/tests          → 92 passed in 106.18s（取り込み時）
+$ uv run pytest -o addopts="" -q tests/test_f4_gaps.py tests/test_checker.py   （修正前、02cb2af）
+FAILED test_g05_… / test_g04_… / test_g06_… / test_g08_… / test_g16_… / test_negative_reports_expected_code[unique_ids__stage_shared_with_child.yaml]
+6 failed, 36 passed
+$ uv run ruff format . && uv run ruff check .             → 68 files left unchanged / All checks passed!
+$ uv run pytest -o addopts="" -q                           → 143 passed in 65.84s
+$ uv run pytest -q --cov=htf.runtime --cov-fail-under=90  → Required test coverage of 90% reached. Total coverage: 93.20%
+$ uv run pytest -o addopts="" -q examples/software-factory/tests          → 92 passed in 104.64s（本体修正後、software factory は変更なし）
+$ 整合性検査: software-factory 0 finding(s)、toy-minimal 0 finding(s)
+```
 
 ### 動的ワークフローの宣言（第5.10節）: `f3-test-runners`
 
