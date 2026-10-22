@@ -26,6 +26,8 @@ from htf.testing.oracle import (
 
 ACCURACY = 0.8  # 混同行列: 正しいクラスを 0.8、unknown を 0.2
 
+pytestmark = pytest.mark.oracle  # オラクル検証はナイトリーの段（計画書第 5.7 節）
+
 
 @pytest.fixture(scope="module")
 def corpus(workflow, tmp_path_factory):  # noqa: ANN001, ANN201

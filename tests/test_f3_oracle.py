@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from htf.testing.oracle import (
     ConfusionClassifier,
     CorpusItem,
@@ -27,6 +29,8 @@ CONFUSION = {
     "checks_failed": {"goal": 0.2, "checks_failed": 0.7, "unknown": 0.1},
     "unknown": {"goal": 0.3, "checks_failed": 0.2, "unknown": 0.5},
 }
+
+pytestmark = pytest.mark.oracle  # オラクル検証はナイトリーの段（計画書第 5.7 節）
 
 
 def _corpus(n: int, seed: int) -> list[CorpusItem]:

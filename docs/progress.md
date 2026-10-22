@@ -4,7 +4,16 @@
 
 ## 次にやること
 
-**F4 の人間ゲートは「全て推奨で」で通過（ADR-014）。software factory を版 0.2 にし（120 passed、整合性検査 0 件）、契約への提案 14.1〜14.5 を実装した（htf 153 passed）。次は F5（v1.0）。** 未 push のコミットあり（F4 取り込み以降。push は人間の指示で）。
+**F5（v1.0）に着手（人間の指示「次に進んでください」）。** F4 の人間ゲートは「全て推奨で」で通過（ADR-014）。software factory は版 0.2（120 passed、整合性検査 0 件）、契約への提案 14.1〜14.5 は実装済み（htf 153 passed）。未 push のコミットあり（F4 取り込み以降。push は人間の指示で）。
+
+F5 の作業単位（第5.1節。この順。完了条件は `tests/test_f5_release.py` に先に書く）:
+- F5-1 完了条件のテスト（版 1.0.0、`oracle` マーカー、CI の三段、expectations / 計画の `workflow_version`、maintenance.md、雛形と sf 計画書の見出しの一致、adopting-gaps 全処置、adopting.md 完成版、README）を失敗する状態で別コミット
+- F5-2 CI のコスト段階: マーカー `oracle` の登録と付与、ci.yml を 常時（push / PR）/ ナイトリー（schedule + 手動）/ 手動（workflow_dispatch）の三 job に。runtime カバレッジ 90% の段の置き場は常時の部分集合で測ってから決める（下げない）
+- F5-3 分類体系とハーネスの同期バージョン管理: expectations と E2E 計画に `workflow_version`（runner が照合し、不一致は失敗）、コーパスとトリアージの項目に `workflow_version`（ワークフロー名ごとの版。古い JSONL も読める）。toy と sf の expectations / 計画（保護ファイル）に版を書く。ADR-015 に小決定として記録
+- F5-4 文書: adopting.md の完成版（software factory を実例に加え、G-01〜G-23 と Codex の指摘から落とし穴の一覧。規則は書き換えない）、harness-plan-template.md の完成版（第 0〜9 節 + 付録の骨格は維持）、docs/maintenance.md（新規）、README（v1.0）、sf 計画書第 9 節の CI の文
+- F5-5 検証役（第5.10節の宣言を先に。予算 25 万トークン）: F4 の本体修正 G-04/05/06/08/16、契約の提案 14.2〜14.5、F5 の完了条件、雛形と sf 計画書の矛盾の有無を、実装を見ていない立場で判定
+- F5-6 v1.0 ゲートの報告: 公開の承認、ADR-006（推奨 (a)）、ADR-014 14.6 と ADR-015 の承認、未 push の本数。タグ・push・Release は指示があるまでしない（v0.1 と同じ）
+- 戻る条件: 雛形を sf に当てはめて矛盾 → 雛形か adopting.md を直す（sf ではない）。CI の費用が予算を超える → expectations の N か頻度
 
 0. **（済）契約への提案 14.1〜14.5 の実装**: 完了条件を先に別コミット（`tests/test_f4_contract_proposals.py`、10 failed）→ 実装（`StageContext.entry` / `reentry` / `child_outcomes`、`ask(..., context=)`、`Runner(max_document_chars=)`、投影の順序 memory_in → writes → reads、`MarkerClassifier` は writes 節だけ）→ CONTRACT 第 5.1 / 5.3 / 5.4 / 7 節と adopting.md 3.4 / 3.5 / 3.6 / 第 4 節を改訂 → software factory は `PersonaUserIO` の署名だけ追従して再検証。sf の本体で `ctx.entry` / `ctx.child_outcomes` を使う置き換えは任意（sf の progress.md）
 0'. **（済）F4 ゲートの決定と版 0.2**: 下の「完了したこと」
