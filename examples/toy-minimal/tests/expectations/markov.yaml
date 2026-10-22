@@ -1,5 +1,6 @@
 # 分布テストの基準（第2節「分布基準の置き場」）。N と種もここ。区間は仮置き（ADR-013）
 name: markov
+workflow_version: "0.2"       # 較正した分類体系の版（定義を変えたら較正し直す。F5）
 origin: { kind: workflow_start }      # 起点。保存した開始時スナップショットからの起動は v0.1 では未対応（欄だけ）
 runs: 300
 seed: 100

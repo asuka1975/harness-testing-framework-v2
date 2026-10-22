@@ -1,5 +1,6 @@
 # E2E カバレッジ計画: 親子の全 (stage, end_state) を、誘発（台本）か注入（n 回目の進入の Verdict の差し替え）で踏む。
 # goal も一つのクラスとして数える。unknown を踏む run は human: [abort] で止める
+workflow_version: "0.2"       # この計画を作った分類体系の版（定義を変えたら対象を見直す。F5）
 targets:
   - { workflow: toy-minimal, stage: collect, state: goal, induce: happy }
   - { workflow: toy-minimal, stage: collect, state: unknown, induce: happy, outcomes: { collect: [unknown] }, human: [abort] }

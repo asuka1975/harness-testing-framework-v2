@@ -1,5 +1,6 @@
 # ずらした基準（落ちるべきもの）: verify の goal を 0.8 以上と要求する
 name: markov_shifted
+workflow_version: "0.2"       # 較正した分類体系の版（定義を変えたら較正し直す。F5）
 origin: { kind: workflow_start }
 runs: 300
 seed: 100

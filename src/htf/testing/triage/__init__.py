@@ -33,6 +33,7 @@ class TriageItem:
     note: str = ""
     carry_in: dict[str, JsonValue] = field(default_factory=dict)
     injected: bool = False  # 注入（E2E）で作られた判定。既定ではコーパス候補にしない
+    workflow_version: str | None = None  # 記録の属するワークフロー（親か子）の版（F5）
 
 
 def _verdict_dict(rec: EvaluationRecord) -> dict[str, JsonValue]:
@@ -99,6 +100,7 @@ class TriageQueue:
         prefix: str,
         include_injected: bool,
     ) -> None:
+        versions = {s.workflow: s.version for s in result.end_snapshots}
         for i, rec in enumerate(result.evaluations):
             if rec.document is None:
                 continue  # 集約や評価不能は分類器の問題ではない
@@ -134,6 +136,7 @@ class TriageQueue:
                     reason="unknown" if is_unknown else "low_confidence",
                     carry_in=dict(rec.carry_in),
                     injected=rec.injected,
+                    workflow_version=versions.get(rec.workflow),
                 )
             )
         for stage_id, entries in result.child_results.items():
@@ -185,6 +188,7 @@ class TriageQueue:
                 options=i.options,
                 label=i.label or "",
                 note=i.note,
+                workflow_version=i.workflow_version,
             )
             for i in self.items
             if i.status == "labeled" and i.label

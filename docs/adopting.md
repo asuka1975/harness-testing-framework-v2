@@ -1,8 +1,8 @@
-# adopting.md — ハーネス側が満たすべきこと（初版、F2）
+# adopting.md — ハーネス側が満たすべきこと（完成版、v1.0）
 
-harness-testing-framework（以下 htf）の上に新しいワークフロー型ハーネスを作る人のための手引き。F5 で software factory を実例に加えた完成版にする。契約の意味は `src/htf/contract/CONTRACT.md`、型は `htf.contract` にある。実例は `examples/toy-minimal/`。
+harness-testing-framework（以下 htf）の上に新しいワークフロー型ハーネスを作る人のための手引き。契約の意味は `src/htf/contract/CONTRACT.md`、型は `htf.contract` にある。実例は二つ: `examples/toy-minimal/`（最小。契約と全遷移種別）と `examples/software-factory/`（ソフトウェア開発のワークフロー。実ツールを走らせる指標、子ワークフロー、ペルソナ、分布テストと E2E まで一通り。この文書と雛形だけを読んだ別セッションが作り、その往復で足りなかったことを直した）。手順は第 3 節、実例の一巡は第 8 節、落とし穴は第 9 節。計画書の雛形は `docs/harness-plan-template.md`、運用は `docs/maintenance.md`。
 
-この文書だけで判断できなかったことは、ハーネス側の `docs/adopting-gaps.md` に書く。htf 本体を直したり、ハーネスの中で回避したりしない。
+この文書だけで判断できなかったことは、ハーネス側の `docs/adopting-gaps.md` に書く。htf 本体を直したり、ハーネスの中で回避したりしない（software factory の記録: `examples/software-factory/docs/adopting-gaps.md`。23 件すべて htf 側で処置した）。
 
 ## 1. 役割分担
 
@@ -44,7 +44,7 @@ harness-testing-framework（以下 htf）の上に新しいワークフロー型
 - **最初のステージは unknown 以外の end_state を持てない**（戻り先は自ステージより前）。自分の goal 指標の不成立をそのステージで準正常にはできないので、直させたい失敗は後ろの「検出するステージ」で判定し、そこから「直すステージ」へ戻す（検出と修正を分ける）
 - **二段続けて戻ると最初の carry は消える**。復元は戻り先の**直近の**開始時スナップショット（memory の全体を含む）を戻し、carry の鍵だけを重ねる。鍵 x を受け取ったステージ T の開始時 memory には x が入っているので、後で T へ戻っても x は残る。消えるのは T より前のステージ S へ戻る時（S の開始時には x が無い）。機械的な規則は閉包: **辺 src → S の carry = 自分の鍵 ∪ 戻り先が S より後ろにある全ての辺の carry の鍵**（検査器の約束どおり、通過用の鍵も src の `memory_out` と S の `memory_in` に並べる。実例: `examples/software-factory/workflow.yaml`）。または戻り先を一段にする。また戻り先が前回書いた成果物は消えて作り直しになるので、carry に前の成果物の id を入れても作り直した成果物と対応する保証は無い。再計画で id が変わりうるなら、id を維持する約束か、分割・統合の対応を成果物に残す約束を記述に書く
 - `rollback.max` は **run 全体での辺ごとの上限**。別の原因で同じ辺を使っても消費する（例: 一度 review → design を使った後、release から戻った周回でもう一度 review の design_flaw が出ると max 1 を超えて escalate）。頻度を見て値を決める
-- ステージ定義の例（計画書付録 B の要点。実例は `examples/toy-minimal/workflow.yaml`）:
+- ステージ定義の例（計画書付録 B の要点。実例は `examples/toy-minimal/workflow.yaml` と、検出と修正の分離・carry の閉包・優先の文言を備えた `examples/software-factory/workflow.yaml`（版 0.2））:
 
 ```yaml
 - id: verify
@@ -191,6 +191,8 @@ class TestMyRuntime(ConformanceSuite):
 
 ## 4. 子ワークフロー
 
+実例: software factory の `implement`（タスクごとに `implement-task.yaml` を起動し、子の check / unit_test の止まり方を集約で `tasks_unfinished` に写す。統合は次の `integrate` が行う）。
+
 ```yaml
 subworkflow:
   ref: child.yaml        # 同じスキーマの別ファイル。子は更に子を持てない（深さ 1）
@@ -222,7 +224,7 @@ subworkflow:
 
 ## 6. テストランナー群（F3）
 
-すべて LLM なしで動く。閾値はすべて仮置き（ADR-013）。
+すべて LLM なしで動く。閾値はすべて仮置き（ADR-013）。実例の規模（software factory 版 0.2）: 台本 26、E2E 43 対象（誘発 39・注入 4）、分布テスト N = 200（markov）と 150（split）、オラクル検証のコーパス 561 件（偽の正解）、トリアージの一周。呼び出し方は `examples/software-factory/tests/`（`sf_support.py` と各 `test_sf_*.py`）。
 
 - **評価ログ**: `result.evaluations`（`EvaluationRecord`: stage、進入回数、状態文書、選択肢、分類結果、Verdict、carry）。子 run の分は `result.child_results` の各 `RunResult` にある。トリアージ・コーパス・分布の集計はここから作る
 - **分布テスト**（`htf.testing.stages`）: 確率的な偽本体（種を固定し既知の分布でクラスを出す）で `run_many` → `tally` → `check_expectations`。expectations は YAML（`runs`、`seed`、`stages.<stage>.<first|reentry>.<class>: {min, max}`、`outcomes`）。実例 `examples/toy-minimal/tests/expectations/`
@@ -266,4 +268,52 @@ queue = TriageQueue("triage.jsonl"); queue.enqueue(result, workflow=workflow.nam
 ## 7. 迷ったら
 
 - この文書と `CONTRACT.md` で決まらないこと、htf に無い機能、回避したくなったこと → ハーネスの `docs/adopting-gaps.md` に書いて続行する。htf の修正は htf 側の通常のセッションが行う
-- end_state の記述の良し悪し（観測可能か、排他か）は検査器では見ない。人間のレビューに出す前に、実装していない第三者に読ませる
+- end_state の記述の良し悪し（観測可能か、排他か）は検査器では見ない。人間のレビューに出す前に、実装していない第三者に定義ファイルだけを読ませる（読取範囲は隔離ディレクトリで課し、既存の指摘は渡さない。実例: htf の `reports/dynamic/f4-sf-definition-review/record.md`）
+- 運用（トリアージ、閾値、版の同期、CI の段、公開）は `docs/maintenance.md`
+
+## 8. 実例の一巡（software factory、版 0.2）
+
+雛形（`docs/harness-plan-template.md`）の節ごとに、software factory がどこで何をしたか。計画書は `examples/software-factory/docs/plan.md`。
+
+| 雛形の節 | software factory で作ったもの | 場所 |
+| --- | --- | --- |
+| 0 前提 | 5 フェーズ 9 ステージ（intake → analyze → design → plan → implement → integrate → verify → review → release）+ 子 3（code → check → unit_test）。ユーザー待ち 2、子の集約 1 | `workflow.yaml` 冒頭、plan.md 第 0 節 |
+| 1 ワークフロー定義 | 成果物の形の取り決め（要旨 report と全結果 results の分離）、指標 28 のマニフェスト、第三者レビュー 2 回（サブエージェントと Codex）の採否で版 0.1 → 0.2 | `workflow.yaml`、`implement-task.yaml`、`metrics/manifest.json`、plan.md 第 1・1.1 節 |
+| 2 最初の実ステージ | 子の check と unit_test。ビルド = compile()、lint = ruff、テスト = coverage run -m pytest。作業ディレクトリに書かない、正規化、メモ化 | `toolchain.py`、`stages/`（`Check`、`UnitTest`） |
+| 3 フィクスチャとコーパス | 小さなコードベース textkit と機能 × 変種の変更、要件・設計・レビューの目録、ペルソナ 5、台本 26（規則は README）、確率的な構成 2 | `fixtures/`、`fixtures/scenarios/README.md` |
+| 4 人手ラベル | 偽の正解（本体が本物の結果から書いた印）で代用。人手ラベルは止まる条件 | `tests/sf_support.py`（`marker_truth`）、`tests/test_sf_oracle.py` |
+| 5 分類器検証 | 偽の分類器（印を読む / 既知の混同行列）で κ・ECE・再実行一致の形を確認。許容幅は一意な文書数から | `tests/test_sf_oracle.py` |
+| 6 分布テストと往復 | expectations 3（理論値 ± 約 3 標準誤差、`workflow_version`）。ずらした基準が落ちる | `tests/expectations/`、`tests/test_sf_distribution.py` |
+| 7 独立性 | unit_test / tests_failing を既定の鍵で。split 構成で検出、検証不能なクラスは記録 | `tests/test_sf_distribution.py`、plan.md 第 7 節 |
+| 8 残りと E2E | 43 対象を誘発 39・注入 4 で。誘発できない 3 クラスは本体の論理を手作りの成果物で確認。マルコフ合成は markov で一致、split で外れる | `tests/e2e/plan.yaml`、`tests/test_sf_e2e.py`、`tests/test_sf_v02.py` |
+| 9 維持 | CI の三段（htf の ci.yml）、トリアージの一周、版の同期 | `tests/test_sf_triage.py`、`docs/maintenance.md` |
+
+組み込み方は一か所（`harness.py`）: 台本 → `Scenario`、確率的な構成 → `Profile`、本体・指標・分類器・ユーザー入出力・人間を `Bindings` に束ね、`Runner` / `ReferenceRuntime` の組み立てを契約適合・決定論・分布・E2E で共有する。
+
+## 9. 落とし穴（software factory の往復 G-01〜G-23 と、第三者レビュー 20 件から）
+
+定義を書く時:
+
+- **最初のステージで失敗を準正常にしようとする**。最初のステージは unknown しか持てない。検出するステージを後ろに置き、そこから直すステージへ戻す（3.1）
+- **二段続けて戻ると carry が消える**。閉包（戻り先より後ろへ運ばれうる鍵を各辺が運ぶ）をテストで固定する（3.1）
+- **goal の定性が自分の写しだけを基準にする**（design.json の requirements に挙げた要件を…）。原本（reads）との一致を要求する
+- **基準値・0 件の境界・kind の値域・id の維持・空の回答が記述に無い**。分類器は記述しか見ない。指標の基準値も定性に書く
+- **普通の失敗が unknown にしか行けない**（カバレッジ不足、lint 違反、統合の失敗、拒否の理由の種類）。頻度の高い失敗には準正常のクラスと戻り先を用意する。稀なものは頻度を見てから
+- **`max` は run 全体の上限**。別の原因で同じ辺を使っても消費する
+
+本体と指標を書く時:
+
+- **指標が他のステージの成果物を読む**。指標が見られるのは自ステージ（フェーズならフェーズ）の writes のスナップショットと memory だけ。必要な事実は自分の成果物に写す（check.json、tasks/summary.json）
+- **実ツールが作業ディレクトリに書く**（バイトコード、キャッシュ）。writes 外の変更として検出される。一時ディレクトリへ逃がし、出力は時刻と絶対パスを落として正規化し、内容のハッシュでメモ化する（3.3）
+- **状態文書の切り詰め**。1 ファイル 4000 文字、文書全体は `max_document_chars`。要旨を先頭に、全結果は別ファイルに。`reads` にコードベースを宣言するステージでは文書全体の上限を付ける
+- **一部だけ即答して残りで中断する UserIO**。累積列が最初の質問から当たるので、中断するペルソナはそのステージの最初の質問から保留する（3.5）
+- **進入回数を本体で数え直す**。`ctx.entry` / `ctx.reentry` を使う（3.4）
+- **親子でステージ id を重ねる**。分布の集計と expectations の鍵が混ざる。検査器が落とす
+- **フィクスチャの世界で起きない失敗を無理に作る**。注入で踏み、本体の論理は手作りの成果物で確かめ、計画に例外として書く
+
+テストを書く時:
+
+- **E2E 計画の注入は Verdict だけを差し替える**。carry は運ばれない。carry を運ぶ end_state は誘発で踏む
+- **同じ文書が多いコーパスでの許容幅**。種つきの分類器は文書の内容で乱数を決めるので有効標本は一意な文書数
+- **expectations の区間を観測に合わせて緩める**。理論値 ± 標準誤差から決め、根拠を書く。落ちるべき基準（ずらした expectations）も持つ
+- **定義を変えたのに expectations・計画・コーパスを据え置く**。`workflow_version` を書き、runner に照合させる（maintenance.md 第 3 節）

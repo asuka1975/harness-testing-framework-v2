@@ -30,6 +30,8 @@ class CorpusItem:
     options: list[dict[str, str]]  # [{"id", "description"}]
     label: str
     note: str = ""
+    # ラベルを付けた時の分類体系の版（workflow.version）。版が変わった記述のラベルは再ラベルの候補（F5）
+    workflow_version: str | None = None
 
 
 @dataclass(frozen=True)
@@ -212,6 +214,7 @@ def corpus_item_from_record(
     options: Sequence[ClassOption],
     label: str,
     note: str = "",
+    workflow_version: str | None = None,
 ) -> CorpusItem:
     return CorpusItem(
         id=item_id,
@@ -221,6 +224,7 @@ def corpus_item_from_record(
         options=[{"id": o.id, "description": o.description} for o in options],
         label=label,
         note=note,
+        workflow_version=workflow_version,
     )
 
 

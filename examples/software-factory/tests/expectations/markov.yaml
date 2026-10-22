@@ -11,6 +11,7 @@
 #     plan の design_incomplete に現れる: 0.03 / 0.87 ≈ 0.034）
 #   integrate: このフィクスチャでは衝突も統合後のビルド失敗も起きない → 1.0
 name: markov
+workflow_version: "0.2"       # 較正した分類体系の版（定義を変えたら較正し直す。F5）
 origin: { kind: workflow_start }
 runs: 200
 seed: 100

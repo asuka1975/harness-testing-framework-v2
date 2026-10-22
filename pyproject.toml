@@ -1,6 +1,6 @@
 [project]
 name = "harness-testing-framework"
-version = "0.1.0"
+version = "1.0.0"
 description = "ワークフロー型エージェントハーネスのための汎用テスティングフレームワーク"
 requires-python = ">=3.12"
 dependencies = [
@@ -29,10 +29,12 @@ packages = ["src/htf"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
-# CI の段階（第5.7節）: 整合性検査と決定論テストは常時、distribution / e2e は偽本体なので今は常時。F5 で段階分け
+# CI の段階（第5.7節、F5）: 整合性検査・決定論テスト・契約適合・トリアージは常時、oracle はナイトリー、
+# distribution / e2e は手動（.github/workflows/ci.yml、docs/maintenance.md）
 markers = [
-    "distribution: 分布テスト（確率的偽本体を N 回実行する）",
-    "e2e: E2E カバレッジとマルコフ合成",
+    "distribution: 分布テスト（確率的偽本体を N 回実行する。手動の段）",
+    "e2e: E2E カバレッジとマルコフ合成（手動の段）",
+    "oracle: オラクル検証（κ・ECE・再実行一致。ナイトリーの段）",
 ]
 
 [tool.coverage.run]

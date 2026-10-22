@@ -1,5 +1,6 @@
 # split 構成の N と種（独立性検証とマルコフ合成の負例に使う）。区間は仮置き（ADR-013）
 name: split
+workflow_version: "0.2"       # 較正した分類体系の版（定義を変えたら較正し直す。F5）
 origin: { kind: workflow_start }
 runs: 300
 seed: 200

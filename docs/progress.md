@@ -103,6 +103,7 @@ F5 の作業単位（第5.1節。この順。完了条件は `tests/test_f5_rele
 - **F4 ゲートの決定「全て推奨で」を記録**（ADR-014 の決定欄と、版 0.2 の実装で確定する小決定 14.6.1〜14.6.11。adopting-gaps.md に処置の状況の表）
 - **software factory を版 0.2 に**（人間の承認を受けた定義の変更に本体を追従させるため、通常セッションが利用者の成果物を編集。理由は sf の progress.md に記録）: 完了条件を先に別コミット（`tests/test_sf_v02.py`、台本 26 本、E2E 計画 43 対象、既存テストの改訂。実装前 51 failed / 54 passed / 3 errors）→ 保護ファイル（`workflow.yaml`、`implement-task.yaml`、expectations）を計画エージェントが編集 → 本体（`Check` / `Integrate`、report と results の分離、approval の kind、manifest の base_version、ペルソナ `quality_lead`、指標 28）→ テストの修正を別コミット（aggregate の属性名、check / results.json に合わせた指標テスト、オラクルの許容幅、E2E の注入 4）→ 120 passed。sf の docs（plan.md、progress.md、台本 README）を版 0.2 に更新。adopting.md 3.1 に carry の閉包と `max` の run 全体性を追記
 - 誘発できないクラス 3 つ（integrate / merge_failed、verify / coverage_short、verify / lint_dirty）は注入で踏み、本体の論理は手作りの成果物で単体テスト（ADR-014 14.6.8）
+- **F5-1〜F5-4（v1.0 の本体）**: 完了条件 `tests/test_f5_release.py` を先に別コミット（15 failed / 1 passed）→ 版 1.0.0（pyproject と `htf.__version__`）、マーカー `oracle`、CI の三段（常時 / ナイトリー / 手動。runtime カバレッジは常時の部分集合で 92.84%）、同期バージョン管理（expectations と E2E 計画の `workflow_version` を runner が照合、コーパスとトリアージの項目に版。toy と sf の expectations・計画に `"0.2"`）、`docs/maintenance.md`（新規）、雛形の完成版（第 0〜9 節 + 付録の骨格を維持。sf の計画書と見出しが一致することをテストで固定）、adopting.md の完成版（規則は不変。第 8 節 実例の一巡、第 9 節 落とし穴）、README、sf 計画書第 9 節、ADR-015（小決定 15.1〜15.6 とゲートで決めてほしい事項 V1〜V4）→ 16 passed
 - **契約への提案 14.1〜14.5 を実装**（承認済み。完了条件 `tests/test_f4_contract_proposals.py` を先に別コミット、10 failed → 実装 → 10 passed）: `StageContext.entry` / `reentry` / `child_outcomes`、`UserIO.ask(..., context=None)`（累積列・recorder・テストダブル・toy と sf のペルソナ）、`Runner(max_document_chars=)` と投影の順序（memory_in → writes → reads。`MarkerClassifier` は writes 節だけを見る）、CONTRACT 第 7 節 1 の `pass` の文言。CONTRACT と adopting.md を改訂。ADR-014 の状態を「決定」に
 - **人間の指示で Codex（GPT-6-Astra、reasoning effort max）に定義 2 ファイルの独立レビュー**（第5.10節の宣言 `f4-sf-definition-review`。読取制限は隔離ディレクトリで構造的に課し、既存の 11 件は渡さない）。2 ターン（独立レビュー 31 分 + 前提の訂正 13 分）、書き込み 0。最後のメッセージを `reports/verification/f4-sf-definition-review/report.md` にそのまま写し、既存 11 件との突き合わせ（矛盾なし、重大度の引き上げ 5、新規 9）を `reports/dynamic/f4-sf-definition-review/record.md` に、採否の推奨の更新と契約への提案 14.5 を ADR-014 に書いた。定義は変えていない
 
@@ -471,11 +472,28 @@ $ uv run pytest -o addopts="" -q examples/software-factory/tests          → 46
     writes 節を Markdown の見出しで切っていた。下の「発見した問題」）→ 修正後 120 passed in 154.09s
 $ uv run pytest -o addopts="" -q tests                                     → 153 passed in 71.44s（修正後）
 $ uv run pytest -q --cov=htf.runtime --cov-fail-under=90                  → Required test coverage of 90% reached. Total coverage: 93.58%
+F5:
+$ uv run pytest -o addopts="" -q tests/test_f5_release.py                 → 15 failed, 1 passed（テスト先行、実装前）→ 実装後 16 passed
+$ uv run pytest -q -m "not distribution and not e2e and not oracle" --cov=htf.runtime --cov-fail-under=90
+                                                                           → Total coverage: 92.84%（常時の段の部分集合。基準 90% は据え置き）
+$ uv run pytest -o addopts="" -q tests                                     → 2 failed, 168 passed（ADR-015 の推奨欄と __version__ の更新漏れ → 直して 170 相当。検証役が再実行）
+$ uv run pytest -o addopts="" -q examples/software-factory/tests          → 120 passed in 149.97s
 分布の実測（markov N = 200）: completed 0.83（マルコフ合成の予測 0.832）、check first goal 0.913 → reentry 1.0、unit_test first goal 0.755 → reentry 0.855、
   plan first design_incomplete 0.031。独立性 unit_test / tests_failing: markov p = 0.204（検出なし）、split p = 0.005（検出）。split の合成は外れる（差 0.445）
 ```
 
 **Codex の独立レビュー（`f4-sf-definition-review`、人間の指示）**: 第 1 ターン 17:36〜18:07（31 分）、入力 186,058 トークン（うちキャッシュ 153,984）、出力 30,383（うち推論 20,767）、コマンド 10（すべて隔離ディレクトリ内の読取。祖先ディレクトリの `AGENTS.md` 探索は空振り）、書き込み 0。第 2 ターン（前提の訂正）18:08〜18:22（13 分）、入力 259,519（キャッシュ 197,248）、出力 42,328、コマンド 0。判定「直してから出す」。指摘は 21 番まで（第 2 ターンで 11 を取り下げ、12・17 を改訂、20・21 を追加）。構造面は既存レビューと同じ結論（優先順位で解消されない重複なし、子の集約は網羅、11 辺の戻り先と carry は宣言と整合）。時間の合計 44 分は宣言の上限 40 分を超えた（第 2 ターンは計画エージェントの誤りの訂正。準正常として受け入れ。`record.md`）
+
+### 動的ワークフローの宣言（第5.10節）: `f5-release`
+
+- **目的**: F5 の完了条件（二つの玩具で全ランナーが通る、adopting-gaps 全処置、雛形と software factory の計画書に矛盾が無い、CI の段階、v1.0 の公開準備）の第三者判定と、先送りしていた第三者判定の消化: F4 の本体修正 G-04 / 05 / 06 / 08 / 16（`tests/test_f4_gaps.py`）、契約の提案 14.2〜14.5（`tests/test_f4_contract_proposals.py`）、F5 の同期バージョン管理と CI の三段（`tests/test_f5_release.py`）。雛形を sf に当てはめた時の矛盾は、どちらも書いていない立場で読む
+- **役割と人数**: 検証役 1（general-purpose サブエージェント。新規起動、fork は使わない）
+- **入力**: docs/plan.md（第 5.8・5.9 節、第 6 節 F4 / F5）、`src/htf/contract/CONTRACT.md`、docs/adopting.md、docs/harness-plan-template.md、docs/maintenance.md、docs/decisions.md（ADR-014、ADR-015）、`tests/test_f4_gaps.py`、`tests/test_f4_contract_proposals.py`、`tests/test_f5_release.py`、`examples/software-factory/docs/plan.md`、`examples/software-factory/tests/test_sf_v02.py`、`.github/workflows/ci.yml`、`pyproject.toml`、`uv run pytest` と検査器 CLI の出力。実装 `src/htf/` は読んでよいが判定の根拠は実行結果
+- **書いてよいパス**: `reports/verification/f5-release/` のみ（探針のスクラッチは /tmp）
+- **完了条件**: `report.md` に (1) F5 の完了条件 5 項目の判定（満たす / 満たさない / 判定不能）と根拠、(2) G-04 / 05 / 06 / 08 / 16 と 14.2〜14.5 の判定（テストが振る舞いを固定しているか。自作の探針: Rerun / RollbackTo の下での `ctx.entry`、子 unknown の `child_outcomes`、`context` の記録再生、投影の順序と文書上限、閉包の鍵を一つ外した定義を検査器が落とすか など）、(3) 雛形と sf 計画書の矛盾の有無（節ごと）、(4) 発見した問題（ワークフロー定義 / 本体 / 文書）、(5) 判定できなかった事項、(6) v1.0 公開への懸念
+- **予算**: トークン 25 万、時間 30 分、フレームワーク外の LLM 呼び出し 0
+- **反復の上限**: 1。**入れ子の深さ**: 0
+- **受け入れ**: 報告を読んだ後、本セッションで両スイートを再実行し、`git status` で書き込み先を確かめて受け入れる
 
 ### 動的ワークフローの宣言（第5.10節）: `f4-sf-definition-review`
 

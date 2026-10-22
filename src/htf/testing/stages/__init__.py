@@ -81,19 +81,24 @@ class Tally:
     by_stage: dict[tuple[str, str], ClassCounts]
     outcomes: Counter[str]
     runs: int
+    # 最上位のワークフローの版（スナップショットから。expectations の workflow_version と照合する。F5）
+    workflow_version: str | None = None
 
 
 def tally(samples: Iterable[RunSample]) -> Tally:
     by_stage: dict[tuple[str, str], ClassCounts] = defaultdict(ClassCounts)
     outcomes: Counter[str] = Counter()
     n = 0
+    version: str | None = None
     for sample in samples:
         n += 1
         outcomes[sample.result.status.value] += 1
+        if version is None and sample.result.end_snapshots:
+            version = sample.result.end_snapshots[0].version
         for unit in evaluation_units(sample.result):
             for rec in unit:
                 by_stage[(rec.stage_id, rec.entry_kind)].counts[rec.cls] += 1
-    return Tally(dict(by_stage), outcomes, n)
+    return Tally(dict(by_stage), outcomes, n, version)
 
 
 def transition_matrix(samples: Iterable[RunSample]) -> dict[tuple[str, str], dict[str, float]]:
@@ -125,6 +130,8 @@ class Expectations:
     seed: int
     stages: dict[str, dict[str, dict[str, Interval]]]  # stage → first|reentry → class → 区間
     outcomes: dict[str, Interval]
+    # この基準を較正した分類体系の版（workflow.version）。None なら照合しない（F5。docs/maintenance.md 第 3 節）
+    workflow_version: str | None = None
 
     @property
     def origin_kind(self) -> str:
@@ -151,6 +158,9 @@ def load_expectations(path: Path) -> Expectations:
         seed=int(doc.get("seed", 0)),
         stages=stages,
         outcomes=outcomes,
+        workflow_version=(
+            str(doc["workflow_version"]) if doc.get("workflow_version") is not None else None
+        ),
     )
 
 
@@ -180,6 +190,16 @@ class ExpectationReport:
 
 
 def check_expectations(t: Tally, expectations: Expectations) -> ExpectationReport:
+    """区間の検査。expectations が workflow_version を持ち、集計の版と違えば ValueError（版の同期。F5）。"""
+    if (
+        expectations.workflow_version is not None
+        and t.workflow_version is not None
+        and expectations.workflow_version != t.workflow_version
+    ):
+        raise ValueError(
+            f"expectations {expectations.name!r} の workflow_version {expectations.workflow_version!r} が"
+            f"実行した定義の版 {t.workflow_version!r} と違う。定義を変えたら expectations を較正し直す"
+        )
     violations: list[Violation] = []
     for stage_id, kinds in expectations.stages.items():
         for kind, classes in kinds.items():

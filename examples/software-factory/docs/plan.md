@@ -134,8 +134,9 @@
 
 - トリアージ: 実 LLM を入れたら run ごとに `TriageQueue.enqueue(low_confidence=閾値)`、週一回ラベル付け。記述の改訂候補は「選択とラベルの食い違い」と「選択は正しいが確信度が閾値未満」（`test_sf_triage.py` の一周で出している）。改訂は提案止まり
 - 分類体系の版（`workflow.version`）とハーネスの版を同じ変更で上げる
-- CI の段階: 整合性検査・決定論テスト・契約適合・オラクル・トリアージは常時（108 件、約 50 秒）、分布と E2E は人間の許可時（12 件、約 100 秒）。htf の CI は `uv run pytest examples/software-factory/tests` を常時走らせる（G-03 の処置。段階分けは htf の F5）
-- 完了条件: 維持の手順書 → 未（htf の `docs/maintenance.md` が F5）
+- CI の段階（htf の `.github/workflows/ci.yml`、`docs/maintenance.md` 第 4 節）: 整合性検査・決定論テスト・契約適合・トリアージは常時（約 1 分）、オラクル検証はナイトリー（`-m oracle`）、分布と E2E は手動（`-m "distribution or e2e"`。約 2 分）。このハーネスのテストもその三段で走る
+- 版の同期: expectations と E2E 計画は `workflow_version: "0.2"` を持ち、runner が定義の版と照合する。定義を変えたら maintenance.md 第 3 節の順
+- 完了条件: 維持の手順書 → **済**（htf の `docs/maintenance.md`。このハーネス固有の担当と頻度は実 LLM を入れる段で決める）
 
 ## 付録: この作業で当たった止まる条件
 

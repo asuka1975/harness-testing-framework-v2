@@ -1,16 +1,26 @@
-# CI の段階（計画書第5.7節）
-#   常時:     整合性検査と決定論テスト（この job）
-#   ナイトリー: オラクル検証（F5 で追加）
-#   手動:     分布テストと E2E（F5 で追加）
+# CI のコスト段階（計画書第5.7節、F5。docs/maintenance.md 第 4 節）
+#   常時:     整合性検査・決定論テスト・契約適合・トリアージ（push / pull_request）。runtime の行カバレッジ 90% もここ
+#   ナイトリー: オラクル検証（schedule。workflow_dispatch の tier=nightly でも起動できる）
+#   手動:     分布テストと E2E（workflow_dispatch の tier=manual。人間が明示的に許可した時だけ）
 name: ci
 
 on:
   push:
   pull_request:
+  schedule:
+    - cron: "0 18 * * *" # 毎日 03:00 JST
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: "走らせる段（nightly: オラクル検証 / manual: 分布テストと E2E）"
+        type: choice
+        options: [nightly, manual]
+        default: manual
 
 jobs:
   always:
-    name: 整合性検査と決定論テスト（常時）
+    name: 常時（整合性検査・決定論テスト・契約適合・トリアージ）
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,8 +30,34 @@ jobs:
       - run: uv sync --frozen
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      - run: uv run pytest --cov=htf --cov-report=term-missing
-      # F2 の完了条件: runtime の行カバレッジ 90% 以上（独立のステップ。全体のカバレッジと混ぜない）
-      - run: uv run pytest -q --cov=htf.runtime --cov-fail-under=90
+      - run: uv run pytest -m "not distribution and not e2e and not oracle" --cov=htf --cov-report=term-missing
+      # F2 の完了条件: runtime の行カバレッジ 90% 以上（常時の段の部分集合で測る。独立のステップ）
+      - run: uv run pytest -m "not distribution and not e2e and not oracle" --cov=htf.runtime --cov-fail-under=90
       # 例のハーネスのテスト（ハーネスの tests/ は本体の testpaths に入れず、明示的に走らせる。adopting-gaps G-03）
-      - run: uv run pytest -q examples/software-factory/tests
+      - run: uv run pytest examples/software-factory/tests -m "not distribution and not e2e and not oracle"
+
+  nightly:
+    name: ナイトリー（オラクル検証）
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.tier == 'nightly')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+      - run: uv run pytest -m oracle
+      - run: uv run pytest examples/software-factory/tests -m oracle
+
+  manual:
+    name: 手動（分布テストと E2E）
+    if: github.event_name == 'workflow_dispatch' && inputs.tier == 'manual'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+      - run: uv run pytest -m "distribution or e2e"
+      - run: uv run pytest examples/software-factory/tests -m "distribution or e2e"

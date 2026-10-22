@@ -773,3 +773,43 @@ F4 の利用者セッションが adopting.md と雛形だけから software fac
 | 14.6.9 | 大きな成果物は要旨と全結果を分ける: `verification/report.json`（要旨）+ `verification/results.json`（正規化したツール出力）、`unit/report.json` + `unit/results.json`。指標は results.json から計算する | Codex 17 / G-08 |
 | 14.6.10 | review の指摘の kind は code / design の二値と記述に明記。未実装の機能は kind code（対象はモジュールのパス）で changes_requested | Codex 14 / 既存 |
 | 14.6.11 | 台本の値に `check` を追加（`unknown` / `low_confidence` の上書きだけ。結果はツールから決まる）。子 run の始まりの判定は `check_failures` も carry と数える | sources.py の run_start |
+
+---
+
+## ADR-015 F5 で確定した小決定（v1.0 の公開と維持）
+
+- 状態: 提案（v1.0 ゲートで承認）
+- 強制点: F5（v1.0 の公開）
+- 起票: 2026-10-22
+
+### 文脈
+
+計画書 F5「CI のコスト段階の雛形、分類体系とハーネスの同期バージョン管理の方式、docs/maintenance.md、adopting.md と雛形の完成版」。完了条件は `tests/test_f5_release.py`（実装前 15 failed / 1 passed）。いずれもスキーマや分類体系の変更ではなく、テストの形式・CI・文書の決定。
+
+### 確定した小決定（実装済み。ゲートで承認）
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| 15.1 | CI は三段: 常時（push / PR。ruff、`-m "not distribution and not e2e and not oracle"` で htf と software factory、runtime の行カバレッジ 90%）、ナイトリー（schedule 毎日 03:00 JST と workflow_dispatch の tier=nightly。`-m oracle`）、手動（workflow_dispatch の tier=manual。`-m "distribution or e2e"`）。マーカー `oracle` を登録し、`tests/test_f3_oracle.py` と sf の `test_sf_oracle.py` に付ける。トリアージの一周は常時 | 計画書第 5.7 節。常時の部分集合での runtime カバレッジは 92.84%（基準 90% を下げない） |
+| 15.2 | 同期バージョン管理: expectations（`Expectations.workflow_version`）と E2E 計画（`Plan.workflow_version`）が分類体系の版を持ち、`check_expectations` は集計の版（`Tally.workflow_version`。run のスナップショットから）、`run_plan` は定義の版と照合して不一致なら `ValueError`。欄が無ければ照合しない（古い形式との互換）。コーパス（`CorpusItem`）とトリアージ（`TriageItem`）の項目は記録の属するワークフロー（親か子）の版を持つ（照合はしない。古い JSONL も読める）。ハーネスのパッケージの版は定義の変更と同じコミットで上げる | 定義を変えたのに基準を据え置く事故を runner で止める。`Snapshot.version` が版の出所（パッケージの版ではない） |
+| 15.3 | `docs/maintenance.md` の構成: トリアージ / 分類器検証と閾値 / 記述の改訂と版の同期 / CI の段階 / 保護ファイルと役割 / 公開 / 一周の目安 | 雛形第 9 節と第 5.7・5.9 節に対応 |
+| 15.4 | 雛形の完成版は第 0〜9 節 + 付録の骨格を保ち、各節に「守ること」「実例」を足す。software factory の計画書と見出しが一致することを `tests/test_f5_release.py` で固定する（番号つきの節は題名まで、付録は見出しの種別まで） | 計画書 F5 の完了条件「雛形に当てはめて矛盾が無い」を機械的に |
+| 15.5 | adopting.md の完成版は規則（第 1〜7 節）を書き換えず、第 8 節「実例の一巡」と第 9 節「落とし穴」を足す | 利用者セッションの往復で検証済みの規則を崩さない |
+| 15.6 | パッケージの版は 1.0.0 を F5 の作業で設定する。タグ・Release・push は人間の承認後（v0.1 と同じ） | — |
+
+### ゲートで決めてほしい事項
+
+| # | 事項 | 推奨 |
+| --- | --- | --- |
+| V1 | v1.0 の公開承認（タグ `v1.0.0`、GitHub Release、push） | 承認 |
+| V2 | ADR-006（実 LLM による方法検証の場所と分類器の後ろ側） | (a) software factory の一ステージ（review か verify）を recorder 経由で本物にし、分類器の較正で閾値を決める。v1.0 の後 |
+| V3 | ADR-014 14.6（版 0.2 の実装で確定した小決定 11 件） | 承認 |
+| V4 | ADR-015 15.1〜15.6 | 承認 |
+
+### 推奨
+
+15.1〜15.6 を承認。V1 は検証役（`reports/verification/f5-release/`）の判定が「満たす」であることを条件に承認。V2 は ADR-006 の推奨 (a) のまま（v1.0 の後に software factory の一ステージを本物にし、較正で閾値を決める）。V3・V4 は承認。
+
+### 決定
+
+（未記入。v1.0 ゲート）

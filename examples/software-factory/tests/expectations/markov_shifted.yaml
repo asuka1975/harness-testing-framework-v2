@@ -1,6 +1,7 @@
 # ずらした基準（落ちるべきもの）: unit_test の初回の goal を 0.9 以上、run 全体の completed を 0.95 以上と要求する
 # （構成の理論値は 0.76 と 0.83 前後。版 0.2 では code の失敗を子の中で直すので completed が上がった）
 name: markov_shifted
+workflow_version: "0.2"       # 較正した分類体系の版（定義を変えたら較正し直す。F5）
 origin: { kind: workflow_start }
 runs: 200
 seed: 100

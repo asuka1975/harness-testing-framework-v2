@@ -68,6 +68,8 @@ class PlanEntry:
 @dataclass(frozen=True)
 class Plan:
     entries: list[PlanEntry]
+    # この計画を作った分類体系の版（workflow.version）。None なら照合しない（F5。docs/maintenance.md 第 3 節）
+    workflow_version: str | None = None
 
 
 def load_plan(path: Path) -> Plan:
@@ -100,7 +102,8 @@ def load_plan(path: Path) -> Plan:
                     overrides,
                 )
             )
-    return Plan(entries)
+    version = doc.get("workflow_version")
+    return Plan(entries, str(version) if version is not None else None)
 
 
 def verdict_for(target: CoverageTarget) -> Verdict:
@@ -160,6 +163,12 @@ def coverage_of(results: Iterable[RunResult], targets: list[CoverageTarget]) -> 
 def run_plan(
     plan: Plan, workflow: Workflow, make_runner: PlanRunnerFactory, *, workspace: Path
 ) -> CoverageReport:
+    """計画の全項目を走らせる。計画が workflow_version を持ち、定義の版と違えば ValueError（版の同期。F5）。"""
+    if plan.workflow_version is not None and plan.workflow_version != workflow.version:
+        raise ValueError(
+            f"E2E 計画の workflow_version {plan.workflow_version!r} が定義 {workflow.name!r} の版 "
+            f"{workflow.version!r} と違う。定義を変えたら計画の対象を見直す"
+        )
     results: list[RunResult] = []
     for i, entry in enumerate(plan.entries):
         inject: dict[tuple[str, str, int], Verdict] = {}

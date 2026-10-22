@@ -4,6 +4,7 @@
 #   unit_test reentry の tests_failing: 再進入の大半が T1（必ず再び落ちる）→ 0.55 以上
 #   run 全体: T1 が implement のたびに stuck → plan への辺の max 1 を超えて escalate → ほぼ全て aborted
 name: split
+workflow_version: "0.2"       # 較正した分類体系の版（定義を変えたら較正し直す。F5）
 origin: { kind: workflow_start }
 runs: 150
 seed: 200
