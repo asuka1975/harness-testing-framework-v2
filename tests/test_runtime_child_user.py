@@ -30,9 +30,28 @@ class Ask:
         (ctx.workspace / "answer.txt").write_text(str(answer))
 
 
-def test_child_user_io_is_rejected(tmp_path: Path) -> None:
+def test_child_user_input_is_rejected_statically() -> None:
+    """ADR-012 12.16: 子のステージの user_input は整合性検査で落とす（実行時より早く分かる）。"""
+    from htf.runtime import WorkflowDefinitionError
+
     registry = DictMetricRegistry({"seed_exists": lambda s: (s.files / "seed.json").is_file()})
-    workflow = load_workflow(WORKFLOW, metric_names=registry.names())
+    with pytest.raises(WorkflowDefinitionError) as info:
+        load_workflow(WORKFLOW, metric_names=registry.names())
+    assert any(f.code == "subworkflow_user_input" for f in info.value.findings)
+
+
+def test_child_user_io_is_rejected_at_runtime(tmp_path: Path) -> None:
+    """検査を迂回して組み立てた定義でも、実行時に ContractViolation になる（防御の二重化）。"""
+    from htf.runtime.model import build_workflow
+    from htf.testing.spec import load_yaml
+
+    def build(path: Path):
+        doc = load_yaml(path)
+        assert isinstance(doc, dict)
+        return build_workflow(doc, path.resolve(), child_loader=build)
+
+    workflow = build(WORKFLOW)
+    registry = DictMetricRegistry({"seed_exists": lambda s: (s.files / "seed.json").is_file()})
     bindings = Bindings(
         bodies={("parent_user", "seed"): Seed(), ("child_user", "ask"): Ask()},
         registry=registry,

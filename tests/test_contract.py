@@ -57,6 +57,23 @@ def test_metric_registry_is_structural() -> None:
     assert isinstance(Registry(), MetricRegistry)
 
 
+def test_runtime_protocol_includes_start_and_three_operations() -> None:
+    """ADR-012 12.14: 開始時スナップショットの取得 start を契約の操作に含める。"""
+    from htf.contract import Runtime
+
+    for name in ("start", "run", "evaluate", "restore", "overlay"):
+        assert callable(getattr(Runtime, name)), name
+
+
+def test_escalation_cause_includes_phase_gate_failed() -> None:
+    """ADR-012 12.15: フェーズゲート不成立の escalate は cause で区別できる。"""
+    from htf.contract import Escalation, Snapshot, Verdict
+
+    snapshot = Snapshot("w", None, "s", "end", 0, Path("."))
+    e = Escalation("s", Verdict(VerdictKind.UNKNOWN), "phase_gate_failed", snapshot)
+    assert e.cause == "phase_gate_failed"
+
+
 def test_waiting_for_user_carries_question() -> None:
     e = WaitingForUser("題目は?", schema={"type": "string"})
     assert e.question == "題目は?"
