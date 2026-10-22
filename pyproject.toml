@@ -43,8 +43,9 @@ branch = true
 line-length = 100
 target-version = "py312"
 src = ["src", "tests"]
-# docs/ と reports/ の Markdown 内コードブロックは記録なので整形しない
-extend-exclude = ["docs", "reports"]
+# docs/ と reports/ の Markdown 内コードブロックは記録なので整形しない。
+# examples/*/fixtures はハーネスのフィクスチャ（意図的に壊れたコードを含む）なので対象外（adopting-gaps G-07）
+extend-exclude = ["docs", "reports", "examples/*/fixtures"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "W"]

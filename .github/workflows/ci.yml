@@ -23,3 +23,5 @@ jobs:
       - run: uv run pytest --cov=htf --cov-report=term-missing
       # F2 の完了条件: runtime の行カバレッジ 90% 以上（独立のステップ。全体のカバレッジと混ぜない）
       - run: uv run pytest -q --cov=htf.runtime --cov-fail-under=90
+      # 例のハーネスのテスト（ハーネスの tests/ は本体の testpaths に入れず、明示的に走らせる。adopting-gaps G-03）
+      - run: uv run pytest -q examples/software-factory/tests

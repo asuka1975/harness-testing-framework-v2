@@ -12,7 +12,7 @@ from __future__ import annotations
 import dataclasses
 import shutil
 from collections import Counter, defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -46,7 +46,13 @@ from htf.contract import (
 from .checkpoint import META_DIR, SnapshotStore, fingerprint, out_of_scope_changes
 from .context import RunContext
 from .model import UNKNOWN, MetricError, Phase, Stage, Workflow
-from .oracle import aggregate_children, class_options, evaluate_metrics, evaluate_stage_detailed
+from .oracle import (
+    MAX_FILE_CHARS,
+    aggregate_children,
+    class_options,
+    evaluate_metrics,
+    evaluate_stage_detailed,
+)
 from .recorder import RecordedClassifier, RecordedLLM, RecordedUserIO, Recorder
 
 DEFAULT_THRESHOLD = 0.5
@@ -148,18 +154,28 @@ class RunResult:
 
 
 class _QueuedUserIO(UserIO):
-    """累積した回答列を先に返し、尽きたら束縛された UserIO に聞く（無ければ中断）。"""
+    """累積した回答列を先に返し、尽きたら束縛された UserIO に聞く（無ければ中断）。
 
-    def __init__(self, answers: Sequence[JsonValue], fallback: UserIO | None) -> None:
-        self._answers = list(answers)
+    束縛された UserIO が即答した回答も累積列に加える（adopting-gaps G-05）。一部だけ即答して残りで中断する
+    UserIO でも、再開後の再実行で最初の質問から同じ回答が順に返る。累積列は進入のたびに消える（再開では消えない）。
+    """
+
+    def __init__(self, answers: list[JsonValue], fallback: UserIO | None) -> None:
+        self._answers = answers  # 共有参照（Runner の累積列）
         self._fallback = fallback
+        self._cursor = 0
 
     def ask(self, question: str, *, schema: dict[str, JsonValue] | None = None) -> JsonValue:
-        if self._answers:
-            return self._answers.pop(0)
+        if self._cursor < len(self._answers):
+            answer = self._answers[self._cursor]
+            self._cursor += 1
+            return answer
         if self._fallback is None:
             raise WaitingForUser(question, schema)
-        return self._fallback.ask(question, schema=schema)
+        answer = self._fallback.ask(question, schema=schema)
+        self._answers.append(answer)
+        self._cursor += 1
+        return answer
 
 
 class ReferenceRuntime:
@@ -175,12 +191,16 @@ class ReferenceRuntime:
         recorder: Recorder | None = None,
         strict_writes: bool = True,
         store_root: Path | None = None,
+        max_file_chars: int = MAX_FILE_CHARS,
     ) -> None:
         self.workflow = workflow
         self.bindings = bindings
         self.workspace = Path(workspace)
         self.workspace.mkdir(parents=True, exist_ok=True)
         self.threshold = threshold
+        self.max_file_chars = (
+            max_file_chars  # 状態文書の 1 ファイルあたりの切り詰め（adopting-gaps G-08）
+        )
         self.recorder = recorder
         self.strict_writes = strict_writes
         self.store = SnapshotStore(
@@ -286,6 +306,7 @@ class ReferenceRuntime:
                 registry=self.bindings.registry,
                 classifier=self.classifier,
                 threshold=self.threshold,
+                max_file_chars=self.max_file_chars,
             )
         self.evaluations.append(self._record(stage, snapshot, verdict, document, classification))
         return verdict
@@ -359,9 +380,7 @@ class ReferenceRuntime:
         items = memory.get(sub.each)
         if not isinstance(items, list):
             raise ContractViolation(f"subworkflow.each {sub.each!r} の値がリストでない: {items!r}")
-        for key in sub.pass_:
-            if key not in memory:
-                raise ContractViolation(f"subworkflow.pass の鍵 {key!r} が memory に無い")
+        # pass の鍵が memory に無い時（carry でしか来ない鍵の初回進入）は子に渡さない（adopting-gaps G-04）
         child_bindings = Bindings(
             bodies=self.bindings.bodies,
             registry=self.bindings.registry,
@@ -379,7 +398,7 @@ class ReferenceRuntime:
         results: list[RunResult] = []
         for i, item in enumerate(items):
             child_ws = parent_dir / str(i)
-            initial = {sub.item_as: item, **{k: memory[k] for k in sub.pass_}}
+            initial = {sub.item_as: item, **{k: memory[k] for k in sub.pass_ if k in memory}}
             child = Runner(
                 sub.child,
                 child_bindings,
@@ -390,6 +409,7 @@ class ReferenceRuntime:
                 initial_memory=initial,
                 child=True,
                 inject=self.inject,
+                max_file_chars=self.max_file_chars,
             )
             try:
                 result = child.run()
@@ -468,6 +488,7 @@ class Runner:
         initial_memory: Mapping[str, JsonValue] | None = None,
         child: bool = False,
         inject: Mapping[tuple[str, str, int], Verdict] | None = None,
+        max_file_chars: int = MAX_FILE_CHARS,
     ) -> None:
         self.workflow = workflow
         self._child = child  # 子 run: escalate は人間へ行かず ChildOutcome になる
@@ -483,6 +504,7 @@ class Runner:
             threshold=threshold,
             recorder=recorder,
             strict_writes=strict_writes,
+            max_file_chars=max_file_chars,
         )
         self.rt.inject = self.inject
         self.human = bindings.human
@@ -529,6 +551,7 @@ class Runner:
                 self._resume_from_start = False
             else:
                 self.rt.entry_counts[stage.id] += 1
+                self.rt.answers[stage.id].clear()  # 進入のたびに回答列は消える（再開では消えない）
             start = self.rt.start(stage.id, self.memory)
             self.start_by_stage[stage.id] = start
             self.start_snapshots.append(start)

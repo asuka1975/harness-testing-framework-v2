@@ -14,8 +14,6 @@ import json
 from pathlib import Path
 from types import ModuleType
 
-import pytest
-
 from htf.contract import Abort, JsonValue, StageContext, WaitingForUser
 from htf.runtime import Bindings, DictMetricRegistry, Runner, RunStatus, load_workflow
 from htf.testing.harness import MarkerClassifier, ScriptedHuman

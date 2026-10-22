@@ -3,7 +3,8 @@
 検査する性質（コード）:
 
   schema                       スキーマ適合（下のどの性質にも対応づけられない違反）
-  unique_ids                   フェーズ id、ステージ id（文書全体で一意）、end_state id（ステージ内で一意）
+  unique_ids                   フェーズ id、ステージ id（文書全体で一意。子のステージ id は親と重ならない）、
+                               end_state id（ステージ内で一意）
   ref_integrity                rollback.state は自ステージの end_state、rollback.stage は同一文書のステージ
   end_state_rollback_bijection unknown を除く end_state と rollback.state が一対一
   rollback_forward             戻り先は自ステージより前
@@ -413,6 +414,14 @@ class _Checker:
                 "subworkflow_ref",
                 f"{spath}/ref",
                 f"子の workflow.name {child['workflow']['name']!r} が親と同じ（束縛の鍵が衝突する）",
+            )
+        shared = sorted({s.stage_id for s in child_idx.stages} & {s.stage_id for s in idx.stages})
+        if shared:
+            self.add(
+                file,
+                "unique_ids",
+                f"{spath}/ref",
+                f"子のステージ id {shared} が親と重なる（分布の集計と expectations の鍵が混ざる）",
             )
         asking = [s.stage_id for s in child_idx.stages if s.stage.get("user_input")]
         if asking:

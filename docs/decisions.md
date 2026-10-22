@@ -637,3 +637,60 @@ ADR-001〜010 の決定を実装に落とす時に、計画書にも ADR にも�
 ### 決定
 
 **承認。** 2026-10-22、人間の決定（「2. 承認。閾値は仮置き」）。13.1〜13.19 を承認。閾値（13.4、13.7、13.8、13.11）は実データが出るまで仮置きのまま。「閾値について人間に見せる懸念」は読まれた上での決定。
+
+---
+
+## ADR-014 F4 の往復: software factory の adopting-gaps の処置と、契約への提案
+
+- 状態: 提案（F4 の人間ゲートで承認。契約への提案は承認まで実装しない）
+- 強制点: F4 ゲート（software factory の workflow.yaml レビュー）
+- 起票: 2026-10-22
+
+### 文脈
+
+F4 の利用者セッションが adopting.md と雛形だけから software factory を作り、判断できなかったことを `examples/software-factory/docs/adopting-gaps.md`（G-01〜G-23）に残した。計画書 F4 の完了条件「adopting-gaps.md の全項目が本体側で解消されるか、解消しない理由が decisions.md に記録されている」に対する処置の記録。本体の修正は toy-minimal で再現するテストを先に書いてから行い（`tests/test_f4_gaps.py`、コミット 02cb2af）、software factory を変更せずに再検証した（92 passed）。
+
+### 処置の一覧
+
+| G | 分類 | 処置 | 内容 |
+| --- | --- | --- | --- |
+| G-01 | 文書 | 解消 | adopting.md に付録 B の要点（ステージ定義の例）と仮置きの閾値の一覧（値・意味・置き場）を載せた |
+| G-02 | 文書 | 解消 | adopting.md 第 6 節にランナーの最小の呼び出し例。toy-minimal のテストは htf の `tests/` のまま（本体のテストデータとして toy を使う構造を変えない） |
+| G-03 | 文書 + CI | 解消 | ハーネスのテストは自分の `tests/` に置き CI で明示的に走らせる方針を adopting.md に。CI に `uv run pytest examples/software-factory/tests` のステップ |
+| G-04 | 機能 | 解消（runtime）+ 契約への提案 14.1 | `pass` の鍵が memory に無い時は子に渡さず起動する。契約第 7 節 1 の文言は提案 |
+| G-05 | 機能 | 解消（runtime） | 束縛した UserIO が即答した回答も累積列に入れる。累積列は進入のたびに消える（再開では消えない） |
+| G-06 | 機能 | 解消（検査器） | `unique_ids` に「子のステージ id は親と重ならない」を追加（負例 `unique_ids__stage_shared_with_child.yaml`） |
+| G-07 | 回避 | 解消（設定） | ruff の `extend-exclude` に `examples/*/fixtures` |
+| G-08 | 文書 + 機能 | 解消 | `Runner(max_file_chars=)` と `project(..., max_file_chars=)`。要旨を先頭に置く指針を adopting.md に |
+| G-09 | 文書 | 解消 | 実ツールの副産物と決定論の注意を adopting.md 3.3 に |
+| G-10 | 文書 | 解消 | メモ化か記録の利用を adopting.md 3.3 に |
+| G-11 | 文書 + 契約への提案 14.2 | 一部解消 | first / reentry の定義を adopting.md 3.4 に。`StageContext` に進入回数を持たせるのは契約の変更なので提案 |
+| G-12 | 文書 | 解消 | 指標が読んでよいもの（スナップショット、memory、静的な資産）を adopting.md 3.3 に |
+| G-13 | 文書 | 解消 | 雛形の骨格（fixtures/ と tests/ の使い分け）、第 2 節の LLM を使わないハーネスの読み替え、付録の「上限」の意味を直した |
+| G-14 | 機能 | 解消しない（理由） | `--metrics-module` は import できるパッケージ用。ハイフン名のディレクトリではマニフェストを使う（adopting.md 3.2 に明記）。読み込み口を CLI に足すより、マニフェスト + 一致テストの方が CI で軽い |
+| G-15 | 機能 | 解消 | F4 開始に伴いガードのテストを外した（コミット 3940915） |
+| G-16 | 機能 | 解消 | `PlanEntry.overrides`（計画の `overrides:`）を工場に `overrides=` で渡す。中断する台本の差し替えは工場の約束として adopting.md と toy の docstring に |
+| G-17 | 文書 | 解消 | 人間の RollbackTo の遷移の記録を adopting.md 3.7 に |
+| G-18 | 機能 | 契約への提案 14.3 | 子を持つステージの本体に子 run の終わり方を渡すのは契約の変更。それまでは成果物の事実で判定する（adopting.md 第 4 節） |
+| G-19 | 機能 | 契約への提案 14.4 | `UserIO.ask` に文脈を渡す欄は契約の変更。それまでは質問文に構造を埋める（adopting.md 3.5） |
+| G-20 | 文書 | 解消 | 集約で unknown になった親の記録は状態文書が無く積まれない旨を adopting.md 第 6 節に |
+| G-21 | 文書 | 解消 | memory の鍵は一つのステージが出すのが素直、複数なら後勝ちと adopting.md 3.1 に |
+| G-22 | 文書 | 解消 | 二段のロールバックで carry が消えること、成果物の id の対応の注意を adopting.md 3.1 に。検査器の警告は見送り（定義の設計の判断であり、機械的に誤りとは言えない） |
+| G-23 | 文書 | 解消 | 最初のステージは unknown しか持てない帰結（検出と修正を分ける）を adopting.md 3.1 に |
+
+### 契約への提案（未実装。ゲートで決める）
+
+| # | 提案 | 理由 |
+| --- | --- | --- |
+| 14.1 | CONTRACT 第 7 節 1 に「`pass` の鍵が親の memory に無い時はその鍵を子に渡さずに起動する。子の `inputs` は親が供給しうる鍵の宣言」を明記 | G-04。検査器（carry を供給元として認める）と runtime の食い違いを runtime 側で解消したので、契約の文言を揃える |
+| 14.2 | `StageContext` に `entry: int`（この run でのそのステージの進入回数）と `reentry: bool` を加える | G-11。確率的偽本体や実本体が first / reentry を runtime と同じ規則で知るため。今は本体が数え直している |
+| 14.3 | 子を持つステージの本体に、子 run の終わり方（`ChildOutcome` の列）を読み取り専用で渡す（`StageContext.child_outcomes`） | G-18。本体が成果物から分類をやり直さずに済む |
+| 14.4 | `UserIO.ask(question, *, schema=None, context=None)` に任意の JSON の文脈を加える | G-19。シミュレータや実 UI に、質問の根拠（見送られた要件など）を構造で渡す |
+
+### 推奨
+
+処置の一覧を承認。14.1 は文言の整合なので採用を推奨。14.2〜14.4 は小さな契約の拡張で、software factory の再検証を伴うので F5 の v1.0 前に実装することを推奨。
+
+### 決定
+
+（未記入。F4 ゲート）

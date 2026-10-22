@@ -63,7 +63,7 @@ def evaluate_metrics(
     return (not failed), values, failed
 
 
-def _render_file(root: Path, rel: str) -> str:
+def _render_file(root: Path, rel: str, max_chars: int = MAX_FILE_CHARS) -> str:
     path = root / rel
     if rel.endswith("/"):
         if not path.is_dir():
@@ -71,7 +71,7 @@ def _render_file(root: Path, rel: str) -> str:
         parts = [f"### {rel}\n"]
         for p in sorted(path.rglob("*")):
             if p.is_file() and META_DIR not in p.relative_to(path).parts:
-                parts.append(_render_file(root, p.relative_to(root).as_posix()))
+                parts.append(_render_file(root, p.relative_to(root).as_posix(), max_chars))
         return "".join(parts)
     if not path.is_file():
         return f"### {rel}\n（無い）\n"
@@ -80,15 +80,18 @@ def _render_file(root: Path, rel: str) -> str:
         text = data.decode("utf-8")
     except UnicodeDecodeError:
         return f"### {rel}\n（バイナリ {len(data)} bytes）\n"
-    if len(text) > MAX_FILE_CHARS:
-        text = text[:MAX_FILE_CHARS] + f"\n…（{len(text) - MAX_FILE_CHARS} 文字省略）"
+    if len(text) > max_chars:
+        text = text[:max_chars] + f"\n…（{len(text) - max_chars} 文字省略）"
     return f"### {rel}\n```\n{text}\n```\n"
 
 
-def project(stage: Stage, snapshot: Snapshot, workspace: Path) -> str:
+def project(
+    stage: Stage, snapshot: Snapshot, workspace: Path, *, max_file_chars: int = MAX_FILE_CHARS
+) -> str:
     """分類器に渡す状態文書。reads ∪ writes ∪ memory_in から組み立てる（CONTRACT 第 5.4 節）。
 
     reads は作業ディレクトリ（前方のステージの成果物）から、writes はスナップショットから読む。
+    1 ファイルは max_file_chars で切る（既定 4000。adopting-gaps G-08）。要旨は成果物の先頭に置く。
     """
     import json
 
@@ -100,10 +103,10 @@ def project(stage: Stage, snapshot: Snapshot, workspace: Path) -> str:
             )
     parts.append("## reads\n")
     for rel in stage.artifacts.reads:
-        parts.append(_render_file(workspace, rel))
+        parts.append(_render_file(workspace, rel, max_file_chars))
     parts.append("## writes\n")
     for rel in stage.artifacts.writes:
-        parts.append(_render_file(snapshot.files, rel))
+        parts.append(_render_file(snapshot.files, rel, max_file_chars))
     return "".join(parts)
 
 
@@ -121,6 +124,7 @@ def evaluate_stage_detailed(
     registry: MetricRegistry,
     classifier: Classifier,
     threshold: float,
+    max_file_chars: int = MAX_FILE_CHARS,
 ) -> tuple[Verdict, str | None, Classification | None]:
     """CONTRACT 第 4 節の順序: goal 指標 → goal 定性 → end_state → unknown。
 
@@ -135,7 +139,7 @@ def evaluate_stage_detailed(
             None,
         )
 
-    document = project(stage, snapshot, workspace)
+    document = project(stage, snapshot, workspace, max_file_chars=max_file_chars)
     result = classifier.classify(document, class_options(stage))
     confident = result.confidence >= threshold
 

@@ -60,6 +60,9 @@ class PlanEntry:
     outcomes: dict[str, list[str]] = field(default_factory=dict)
     human: list[str] | None = None
     inject_entry: int = 1
+    overrides: dict = field(
+        default_factory=dict
+    )  # 台本の任意の欄の上書き（工場が解釈する。adopting-gaps G-16）
 
 
 @dataclass(frozen=True)
@@ -72,6 +75,7 @@ def load_plan(path: Path) -> Plan:
     entries = []
     for e in doc["targets"]:
         target = CoverageTarget(e["workflow"], e["stage"], e["state"])
+        overrides = dict(e.get("overrides") or {})
         if "inject" in e:
             entries.append(
                 PlanEntry(
@@ -81,12 +85,19 @@ def load_plan(path: Path) -> Plan:
                     dict(e.get("outcomes") or {}),
                     e.get("human"),
                     int(e["inject"].get("entry", 1)),
+                    overrides,
                 )
             )
         else:
             entries.append(
                 PlanEntry(
-                    target, "induce", e["induce"], dict(e.get("outcomes") or {}), e.get("human")
+                    target,
+                    "induce",
+                    e["induce"],
+                    dict(e.get("outcomes") or {}),
+                    e.get("human"),
+                    1,
+                    overrides,
                 )
             )
     return Plan(entries)
@@ -156,9 +167,19 @@ def run_plan(
             inject[(entry.target.workflow, entry.target.stage_id, entry.inject_entry)] = (
                 verdict_for(entry.target)
             )
-        runner = make_runner(
-            entry.scenario, entry.outcomes, entry.human, inject, workspace / f"plan-{i}"
-        )
+        if entry.overrides:
+            runner = make_runner(
+                entry.scenario,
+                entry.outcomes,
+                entry.human,
+                inject,
+                workspace / f"plan-{i}",
+                overrides=entry.overrides,
+            )
+        else:
+            runner = make_runner(
+                entry.scenario, entry.outcomes, entry.human, inject, workspace / f"plan-{i}"
+            )
         result = runner.run()
         results.append(result)
     return coverage_of(results, enumerate_targets(workflow))

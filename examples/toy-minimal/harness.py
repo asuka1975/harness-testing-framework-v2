@@ -204,11 +204,18 @@ def make_plan_runner(
     scenario_name: str,
     outcomes: Mapping[str, list[str]],
     human: list[str] | None,
-    inject: Mapping[tuple[str, int], Verdict],
+    inject: Mapping[tuple[str, str, int], Verdict],
     workspace: Path,
+    overrides: Mapping[str, object] | None = None,
 ) -> Runner:
-    """E2E 計画の一項目から Runner を作る（htf.testing.e2e.run_plan の工場）。"""
+    """E2E 計画の一項目から Runner を作る（htf.testing.e2e.run_plan の工場）。
+
+    overrides は台本の任意の欄の上書き（計画の `overrides:`）。中断する台本（user: deferring）は即答する
+    ペルソナに差し替える（計画の run は resume のループを回さない）。
+    """
     scenario = load_scenario(SCENARIO_DIR / f"{scenario_name}.yaml")
+    if overrides:
+        scenario = dataclasses.replace(scenario, **dict(overrides))
     if outcomes:
         scenario = scenario.with_outcomes(**{k: list(v) for k, v in outcomes.items()})
     if human is not None:
