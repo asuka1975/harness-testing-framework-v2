@@ -41,9 +41,10 @@ def _read(path: Path) -> str:
 # --- 版と CI ---
 
 
-def test_package_version_is_1_0_0() -> None:
+def test_package_version_is_1_x() -> None:
+    """v1.0 系（パッチ版は上がる。htf.__version__ との一致は test_repo_layout）。"""
     project = tomllib.loads(_read(ROOT / "pyproject.toml"))
-    assert project["project"]["version"] == "1.0.0"
+    assert project["project"]["version"].split(".")[0] == "1"
     markers = project["tool"]["pytest"]["ini_options"]["markers"]
     assert any(m.startswith("oracle:") for m in markers)
 
