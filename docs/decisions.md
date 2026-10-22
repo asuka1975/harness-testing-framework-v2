@@ -746,4 +746,28 @@ F4 の利用者セッションが adopting.md と雛形だけから software fac
 
 ### 決定
 
-（未記入。F4 ゲート）
+**全て推奨どおり。** 2026-10-22、人間の決定（「全て推奨で」。Codex のレビューの報告を受けた後）。内訳:
+
+- 処置の一覧（G-01〜G-23）を承認
+- 契約への提案: 14.1 採用（文言）。14.2〜14.4 は F5 の v1.0 前に実装。14.5 は (a) 文書全体の上限 + (b) `writes` を `reads` より前に を採用、(c) 投影から外す印は頻度を見てから
+- 第三者レビュー 11 件: 採る 10（うち構造の変更 2: 子の `check`、`integrate` の分離）、頻度を見てから 1（稀な場合の残り）
+- Codex の新規 9 件: 採る 5（04 plan の `design_incomplete`、06、16、18、19）、見送る 1（09）、頻度を見てから 2（10、21）、htf 側 1（20 → 14.5）。改訂 12・17 と拡張 13・15 は採る。intake の constraints は任意と明記。`max` は変えない
+- push は推奨に含めていないので行わない（人間の指示待ち）
+
+承認後の順序: software factory の定義を版 0.2 に（テストを先に別コミット）→ 本体・台本・E2E 計画・expectations → 契約の提案の実装（toy-minimal で検証 → software factory で再検証）→ F5。
+
+### 14.6 版 0.2 の実装で確定する小決定（承認の範囲内の実装の詳細。F5 ゲートで承認）
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| 14.6.1 | 子は code → `check` → unit_test。`check` は build / lint / scope を検査して `check.json` に書き、`build_failed`（優先 1）> `out_of_scope`（2）> `lint_failed`（3）→ code、carry は一つの鍵 `check_failures`（{kind, items}）、各 max 1。code の goal 指標は `changed_paths_nonempty` だけ | 検出と修正を分ける。carry を一つの鍵にするのは code の本体と独立性検証の代表を単純にするため |
+| 14.6.2 | `check` の指標 `build_passed` / `lint_clean` / `changed_paths_in_scope` は `check.json` に記録した正規化済みのツール出力から計算する（unit_test / verify と同じ型）。`repo/` は code の writes なので check の指標からは見えない（G-12） | 指標が読めるのは自ステージの writes のスナップショットだけ |
+| 14.6.3 | 親の build フェーズは implement（子の起動と `tasks/summary.json`。指標 `tasks_summary_complete`）→ `integrate`（reads: tasks/、tasks.json。writes: codebase/、merge.json。指標 merged_build_passed / merged_paths_in_scope / `merge_conflict_count`）。`merge_failed` → plan、carry `merge_failures` | Codex 05・06。implement の本体指示は「check か unit_test で止まったタスクを未完了にする」に揃える |
+| 14.6.4 | verify の end_state の優先順位: `regression` > `criteria_unmet`（受け入れテストが無いか passed でない）> `coverage_short`（0.85 未満、carry `suite_coverage_gaps`）> `lint_dirty`（carry `suite_lint_violations`）。すべて → plan、max 1 | 失敗したテストはまず直す。lint は最後 |
+| 14.6.5 | release の `rejected_requirements`（approval.json の kind が requirements。→ analyze、carry `rejection_feedback`）と `rejected_quality`（kind が quality。→ plan、carry `rejection_feedback`）。kind が無い拒否は unknown。新ペルソナ `quality_lead`（役割「品質管理者」。初回は品質を理由に拒否し、二度目に承認） | Codex 08 |
+| 14.6.6 | plan の `design_incomplete`（requirements.json の見送りでない要件のうち design.json のどのコンポーネントにも満たされないものがある。`tasks.json.unassigned_requirements`。指標 `unassigned_requirement_count` max 0）→ design、carry `unassigned_requirements`。`design_gap` と両方なら design_incomplete 優先。design の変種 `drops_requirement`（自分の写しからも要件を落として goal を主張する） | Codex 04・12 |
+| 14.6.7 | carry の閉包: 辺 src → S の carry は、自分の鍵 ∪ 「戻り先が S より後ろにある全ての辺の carry の鍵」。復元は戻り先の直近の開始時 memory を戻すので、鍵が消えるのは「その鍵を受け取ったステージより前へ戻る」時だけ。閉包はテストで固定する（`test_sf_v02.py`） | Codex 07 / G-22。adopting.md 3.1 の指針の機械的な形 |
+| 14.6.8 | 誘発できないクラス: `integrate.merge_failed`（scope が重ならず、scope 外は check が止めるので衝突が起きない）、`verify.coverage_short` / `lint_dirty`（子の check と unit_test が先に止める）。E2E では注入で踏み、本体の論理は単体テストで確かめる。計画の約束「carry を運ぶ end_state は全て誘発」の例外として plan.yaml と sf 計画書に明記 | フィクスチャを無理に作らない（偽の世界で起きない失敗を作っても検証にならない） |
+| 14.6.9 | 大きな成果物は要旨と全結果を分ける: `verification/report.json`（要旨）+ `verification/results.json`（正規化したツール出力）、`unit/report.json` + `unit/results.json`。指標は results.json から計算する | Codex 17 / G-08 |
+| 14.6.10 | review の指摘の kind は code / design の二値と記述に明記。未実装の機能は kind code（対象はモジュールのパス）で changes_requested | Codex 14 / 既存 |
+| 14.6.11 | 台本の値に `check` を追加（`unknown` / `low_confidence` の上書きだけ。結果はツールから決まる）。子 run の始まりの判定は `check_failures` も carry と数える | sources.py の run_start |
