@@ -12,4 +12,4 @@ answers:
 human: []
 expect:
   status: completed
-  transitions: [suspend_resume, suspend_resume, suspend_resume, suspend_resume, suspend_resume, next, next, next, next, subworkflow_aggregate, next, next, next, suspend_resume, next]
+  transitions: [suspend_resume, suspend_resume, suspend_resume, suspend_resume, suspend_resume, next, next, next, next, subworkflow_aggregate, next, next, next, next, suspend_resume, next]

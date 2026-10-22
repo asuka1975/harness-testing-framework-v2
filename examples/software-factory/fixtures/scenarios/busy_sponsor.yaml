@@ -7,4 +7,4 @@ answers:
 human: []
 expect:
   status: completed
-  transitions: [next, next, next, next, subworkflow_aggregate, next, next, next, suspend_resume, next]
+  transitions: [next, next, next, next, subworkflow_aggregate, next, next, next, next, suspend_resume, next]

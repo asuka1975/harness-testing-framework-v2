@@ -17,9 +17,8 @@ from htf.testing.triage import TriageQueue
 
 UNKNOWN_SCENARIOS = [
     "intake_unknown",
-    "code_broken_abort",
-    "code_out_of_scope_rerun",
-    "lint_unknown_continue",
+    "code_unknown_rerun",
+    "check_unknown_continue",
     "unit_test_unknown",
     "verify_low_confidence",
     "review_unknown_rollback",
@@ -39,7 +38,8 @@ def test_triage_round_trip(workflow, tmp_path):
 
     items = queue.list(status="open")
     by_stage = Counter((i.workflow, i.stage) for i in items)
-    assert by_stage[("implement-task", "code")] >= 3  # 子 run の記録も辿る
+    assert by_stage[("implement-task", "code")] >= 1  # 子 run の記録も辿る
+    assert by_stage[("implement-task", "check")] >= 1
     assert by_stage[("implement-task", "unit_test")] >= 1
     assert {("software-factory", "intake"), ("software-factory", "verify")} <= set(by_stage)
     assert all(i.document and i.options for i in items)

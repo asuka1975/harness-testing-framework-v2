@@ -5,4 +5,4 @@ persona: end_user
 human: []
 expect:
   status: completed
-  transitions: [next, rollback_within_phase, next, next, next, next, subworkflow_aggregate, next, next, next, next]
+  transitions: [next, rollback_within_phase, next, next, next, next, subworkflow_aggregate, next, next, next, next, next]

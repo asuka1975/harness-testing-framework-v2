@@ -41,12 +41,13 @@ def test_shifted_expectations_fail(markov_samples):
 
 
 def test_carry_reentry_changes_the_distribution(markov_samples):
-    """code は carry（test_failures / coverage_gaps）を受けた再進入で直した変更を書きやすい（構成の reentry 分布）。"""
+    """code は carry（check_failures / test_failures / coverage_gaps）を受けた再進入で直した変更を書きやすい
+    （構成の reentry 分布）。それは code の次の check と unit_test の再進入の分布に現れる。"""
     t = tally(markov_samples)
-    code_first, code_re = t.by_stage[("code", "first")], t.by_stage[("code", "reentry")]
+    check_first, check_re = t.by_stage[("check", "first")], t.by_stage[("check", "reentry")]
     unit_first, unit_re = t.by_stage[("unit_test", "first")], t.by_stage[("unit_test", "reentry")]
-    assert code_re.total >= 50 and unit_re.total >= 50
-    assert code_re.freq("goal") - code_first.freq("goal") >= 0.03
+    assert check_re.total >= 50 and unit_re.total >= 50
+    assert check_re.freq("goal") - check_first.freq("goal") >= 0.03
     assert unit_re.freq("goal") - unit_first.freq("goal") >= 0.05
     assert unit_re.freq("tests_failing") < unit_first.freq("tests_failing")
 

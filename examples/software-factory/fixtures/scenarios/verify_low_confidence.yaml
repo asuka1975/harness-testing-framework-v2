@@ -5,4 +5,4 @@ outcomes:
 human: [continue_as_goal]
 expect:
   status: completed
-  transitions: [next, next, next, next, subworkflow_aggregate, next, escalate_unknown, next, next, next]
+  transitions: [next, next, next, next, subworkflow_aggregate, next, next, escalate_unknown, next, next, next]

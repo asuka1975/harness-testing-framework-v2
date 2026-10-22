@@ -5,4 +5,4 @@ outcomes:
 human: []
 expect:
   status: completed
-  transitions: [next, next, next, rollback_within_phase, next, next, subworkflow_aggregate, next, next, next, next]
+  transitions: [next, next, next, rollback_within_phase, next, next, subworkflow_aggregate, next, next, next, next, next]

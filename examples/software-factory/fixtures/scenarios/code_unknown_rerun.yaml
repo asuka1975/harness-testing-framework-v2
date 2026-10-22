@@ -1,0 +1,10 @@
+# 台本: T2 の code の結果が分類できない（印 unknown）→ 子 unknown → 集約の unknown 規則で親 unknown → 人間が Rerun
+# （implement を開始時スナップショットからやり直す）→ 子 run の台本は尽きて全て correct
+name: code_unknown_rerun
+child_runs:
+  - {}
+  - code: [unknown]
+human: [rerun]
+expect:
+  status: completed
+  transitions: [next, next, next, next, subworkflow_aggregate, escalate_unknown, subworkflow_aggregate, next, next, next, next, next]

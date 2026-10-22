@@ -6,4 +6,4 @@ outcomes:
 human: ["rollback_to:plan"]
 expect:
   status: completed
-  transitions: [next, next, next, next, subworkflow_aggregate, next, next, escalate_unknown, rollback_across_phase, next, subworkflow_aggregate, next, next, next, next]
+  transitions: [next, next, next, next, subworkflow_aggregate, next, next, next, escalate_unknown, rollback_across_phase, next, subworkflow_aggregate, next, next, next, next, next]

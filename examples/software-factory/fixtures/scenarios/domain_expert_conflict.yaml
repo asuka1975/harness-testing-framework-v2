@@ -1,6 +1,7 @@
 # 台本: ドメイン専門家の依頼。R4（かな・漢字を残す）が R1 と衝突 → design が requirements_conflict（成果物から決まる）
-# → analyze へ（境界越え、carry: conflicts）で R4 を見送る → ... → release で依頼者が承認しない（合意なしの見送り）
-# → analyze へ（境界越え、carry: rejection_feedback）で見送りへの合意を記録 → 二度目の release で承認
+# → analyze へ（境界越え、carry: conflicts）で R4 を見送る → ... → release で依頼者が承認しない（合意なしの見送り。
+# kind: requirements）→ rejected_requirements → analyze へ（境界越え、carry: rejection_feedback）で見送りへの合意を記録
+# → 二度目の release で承認
 name: domain_expert_conflict
 persona: domain_expert
 human: []
@@ -15,6 +16,7 @@ expect:
     - next                   # plan
     - subworkflow_aggregate
     - next                   # implement
+    - next                   # integrate
     - next                   # verify
     - next                   # review
     - rollback_across_phase  # release → analyze（rejection_feedback）
@@ -23,6 +25,7 @@ expect:
     - next                   # plan
     - subworkflow_aggregate
     - next                   # implement
+    - next                   # integrate
     - next                   # verify
     - next                   # review
     - next                   # release

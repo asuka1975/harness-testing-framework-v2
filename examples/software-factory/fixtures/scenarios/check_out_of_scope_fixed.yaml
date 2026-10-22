@@ -1,0 +1,15 @@
+# 台本: T3 の code が task.scope の外（src/textkit/__init__.py）を変える → check が out_of_scope → code へ
+# （carry: check_failures）→ 直した変更で goal
+name: check_out_of_scope_fixed
+child_runs:
+  - {}
+  - {}
+  - code: [out_of_scope, correct]
+human: []
+expect:
+  status: completed
+  transitions: [next, next, next, next, subworkflow_aggregate, next, next, next, next, next]
+  child_transitions:
+    - [next, next, next]
+    - [next, next, next]
+    - [next, rollback_within_phase, next, next, next]

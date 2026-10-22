@@ -1,9 +1,0 @@
-# 台本: T1 の code が構文エラーの変更を書く → code の指標（build_passed）が不成立で unknown → 子の中で escalate
-# → 集約の unknown 規則で親 unknown → 人間へ。人間は中止
-name: code_broken_abort
-child_runs:
-  - code: [broken]
-human: [abort]
-expect:
-  status: aborted
-  transitions: [next, next, next, next, subworkflow_aggregate, escalate_unknown]

@@ -69,8 +69,11 @@ def test_stage_ids_are_unique_across_parent_and_child(workflow):
 
 def test_every_class_has_a_coverage_target(workflow):
     targets = {(t.workflow, t.stage_id, t.state) for t in enumerate_targets(workflow)}
-    assert len(targets) == 31
+    assert (
+        len(targets) == 43
+    )  # 版 0.2: integrate と check を加え、verify / release / plan のクラスを増やした
     assert ("implement-task", "unit_test", "coverage_low") in targets
+    assert ("implement-task", "check", "build_failed") in targets
 
 
 def test_three_or_more_personas():

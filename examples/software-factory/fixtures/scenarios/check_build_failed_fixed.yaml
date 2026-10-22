@@ -1,0 +1,13 @@
+# 台本: T1 の code が構文エラーの変更を書く → check が build_failed → code へ（子の中のフェーズ内、carry: check_failures）
+# → 直した変更で goal。親から見ると子は全て goal（版 0.1 では code の指標の不成立で unknown → 人間だった）
+name: check_build_failed_fixed
+child_runs:
+  - code: [broken, correct]
+human: []
+expect:
+  status: completed
+  transitions: [next, next, next, next, subworkflow_aggregate, next, next, next, next, next]
+  child_transitions:
+    - [next, rollback_within_phase, next, next, next]
+    - [next, next, next]
+    - [next, next, next]

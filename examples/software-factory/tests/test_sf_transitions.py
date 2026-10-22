@@ -69,7 +69,7 @@ def test_all_seven_transition_kinds_are_observed(workflow, tmp_path):
 
 def test_all_four_resolutions_are_exercised(workflow, tmp_path):
     seen = set()
-    for name in ("code_broken_abort", "code_out_of_scope_rerun", "verify_low_confidence",
+    for name in ("unit_test_unknown", "code_unknown_rerun", "check_unknown_continue",
                  "review_unknown_rollback"):  # fmt: skip
         result = _results.get(name) or _run(name, workflow, tmp_path)
         seen |= {type(r) for r in result.resolutions}
@@ -82,7 +82,9 @@ def test_child_escalations_stay_in_the_child(workflow, tmp_path):
     first = result.child_results["implement"][0]
     assert _kinds(first[0].trace) == [
         "next",
+        "next",
         "rollback_within_phase",
+        "next",
         "next",
         "escalate_max_exceeded",
     ]
@@ -171,7 +173,11 @@ def test_domain_expert_deferral_is_agreed_after_rejection(workflow, tmp_path):
     assert [d.get("conflict") for d in reqs["decisions"] if "conflict" in d] == [["R1", "R4"]]
     changelog = (tmp_path / "ws" / "release" / "CHANGELOG.md").read_text(encoding="utf-8")
     assert "R4" in changelog and "合意済み" in changelog
-    rejected = [e for e in result.evaluations if e.stage_id == "release" and e.cls == "rejected"]
+    rejected = [
+        e
+        for e in result.evaluations
+        if e.stage_id == "release" and e.cls == "rejected_requirements"
+    ]
     assert rejected and rejected[0].carry_out["rejection_feedback"]["unagreed"] == ["R4"]
 
 
@@ -185,6 +191,8 @@ def test_domain_expert_deferral_is_agreed_after_rejection(workflow, tmp_path):
             "tasks_unfinished",
             "前回の単体テストが通らなかった: 失敗したテスト tests/test_slug.py::test_basic",
         ),
+        ("check_max_exceeded", "前回のビルドが通らなかった"),
+        ("release_rejected_quality", "依頼者の指摘（品質）"),
     ],
 )
 def test_carry_reaches_the_plan_as_task_notes(name, needle, workflow, tmp_path):
@@ -198,11 +206,12 @@ def test_carry_reaches_the_plan_as_task_notes(name, needle, workflow, tmp_path):
 def test_happy_artifacts_carry_real_tool_results(workflow, tmp_path):
     run_scenario(H.load_scenario("happy"), workflow, tmp_path / "ws")
     report = _json(tmp_path / "ws" / "verification" / "report.json")
-    statuses = {t["status"] for t in report["result"]["tests"]}
-    assert len(report["result"]["tests"]) == 14 and statuses == {"passed"}
-    assert report["coverage"] == 1.0 and report["lint"]["violations"] == []
+    results = _json(tmp_path / "ws" / "verification" / "results.json")
+    statuses = {t["status"] for t in results["result"]["tests"]}
+    assert len(results["result"]["tests"]) == 14 and statuses == {"passed"}
+    assert report["coverage"] == 1.0 and report["lint_violation_count"] == 0
     assert {c["status"] for c in report["criteria"]} == {"passed"}
     merge = _json(tmp_path / "ws" / "merge.json")
     assert merge["merged"] == ["T1", "T2", "T3"] and merge["conflicts"] == []
     manifest = _json(tmp_path / "ws" / "release" / "manifest.json")
-    assert manifest["files"]["src/textkit/slug.py"]
+    assert manifest["files"]["src/textkit/slug.py"] and manifest["base_version"] == "0.1.0"

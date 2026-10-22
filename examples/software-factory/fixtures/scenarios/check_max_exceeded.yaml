@@ -1,0 +1,14 @@
+# 台本: T1 の code が二度とも構文エラー → check が build_failed を二度（max 1 を超えて stuck）→ 集約で
+# tasks_unfinished → plan へ（境界越え、carry: unfinished_tasks）→ 二度目の子 run は全て correct
+name: check_max_exceeded
+child_runs:
+  - code: [broken, broken]
+human: []
+expect:
+  status: completed
+  transitions: [next, next, next, next, subworkflow_aggregate, rollback_across_phase, next, subworkflow_aggregate, next, next, next, next, next]
+  child_runs: [3, 3]
+  child_transitions:
+    - [next, rollback_within_phase, next, escalate_max_exceeded]
+    - [next, next, next]
+    - [next, next, next]

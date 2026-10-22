@@ -6,5 +6,5 @@ child_runs: []
 human: []
 expect:
   status: completed
-  transitions: [next, next, next, next, subworkflow_aggregate, next, next, next, next]
+  transitions: [next, next, next, next, subworkflow_aggregate, next, next, next, next, next]
   gates: ["discovery:passed", "design:passed", "build:passed", "assure:passed", "release:passed"]

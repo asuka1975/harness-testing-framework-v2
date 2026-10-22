@@ -1,0 +1,14 @@
+# 台本: T2 の code が lint 違反（未使用の import）を残す → check が lint_failed → code へ（carry: check_failures）
+# → 直した変更で goal
+name: check_lint_failed_fixed
+child_runs:
+  - {}
+  - code: [lint, correct]
+human: []
+expect:
+  status: completed
+  transitions: [next, next, next, next, subworkflow_aggregate, next, next, next, next, next]
+  child_transitions:
+    - [next, next, next]
+    - [next, rollback_within_phase, next, next, next]
+    - [next, next, next]

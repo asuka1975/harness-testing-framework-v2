@@ -1,0 +1,12 @@
+# 台本: T3 の check の結果が分類できない（印 unknown）→ 子 unknown → 親 unknown → 人間が goal 扱いで続行
+# （ContinueAsGoal）。統合は check と単体テストを通ったタスクだけなので T3 は入らず、verify が受け入れ基準 R3 の
+# テストの不在を criteria_unmet として見つける → plan へ → 二度目は correct
+name: check_unknown_continue
+child_runs:
+  - {}
+  - {}
+  - check: [unknown]
+human: [continue_as_goal]
+expect:
+  status: completed
+  transitions: [next, next, next, next, subworkflow_aggregate, escalate_unknown, next, next, rollback_across_phase, next, subworkflow_aggregate, next, next, next, next, next]

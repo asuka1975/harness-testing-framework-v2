@@ -6,5 +6,5 @@ child_runs:
 human: []
 expect:
   status: completed
-  transitions: [next, next, next, next, subworkflow_aggregate, rollback_across_phase, next, subworkflow_aggregate, next, next, next, next]
+  transitions: [next, next, next, next, subworkflow_aggregate, rollback_across_phase, next, subworkflow_aggregate, next, next, next, next, next]
   child_runs: [3, 3]

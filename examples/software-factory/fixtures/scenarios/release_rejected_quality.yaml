@@ -1,0 +1,8 @@
+# 台本: 品質管理者のペルソナ。要求には過不足なく答えるが、最初のリリースは品質を理由に承認しない（kind: quality）
+# → rejected_quality → plan へ（境界越え、carry: rejection_feedback。指摘はタスクの notes に）→ 二度目の release で承認
+name: release_rejected_quality
+persona: quality_lead
+human: []
+expect:
+  status: completed
+  transitions: [next, next, next, next, subworkflow_aggregate, next, next, next, next, rollback_across_phase, next, subworkflow_aggregate, next, next, next, next, next]

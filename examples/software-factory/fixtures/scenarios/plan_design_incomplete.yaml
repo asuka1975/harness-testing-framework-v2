@@ -1,0 +1,10 @@
+# 台本: design が見送りでない要件（R3）を自分の写しからも落として goal を主張する（変種 drops_requirement）
+# → plan が requirements.json と design.json を照らして design_incomplete → design へ（フェーズ内、
+# carry: unassigned_requirements）→ 二度目の design は R3 を割り当てる → 以降は goal
+name: plan_design_incomplete
+outcomes:
+  design: [drops_requirement, goal]
+human: []
+expect:
+  status: completed
+  transitions: [next, next, next, rollback_within_phase, next, next, subworkflow_aggregate, next, next, next, next, next]
