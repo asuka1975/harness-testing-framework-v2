@@ -6,7 +6,7 @@
 
 **v0.1 のゲートは通過した**（2026-10-22。ADR-012 / ADR-013 承認、契約への提案は推奨どおり実装、GitHub の public リポジトリ `asuka1975/harness-testing-framework-v2` に push、tag v0.1.0 と Release）。次は **F4（software factory）**。
 
-1. **F4 の準備（通常セッション）**: `docs/harness-plan-template.md` は F5 の成果物だが、F4 の利用者セッションは「adopting.md、雛形、toy-minimal、公開 API の文書」だけを読む。雛形が無いまま始めるか、最低限の雛形を先に置くかを人間に確認する（置かなければ adopting-gaps.md に「雛形が無い」と記録されるだけで、F4 は始められる）
+1. **F4 の準備（済）**: 人間の指示で `docs/harness-plan-template.md` の最低限版を置いた（0〜9 節の骨格と付録。F5 で software factory を実例に完成版にする）。F4 の利用者セッションは「adopting.md、雛形、toy-minimal、公開 API の文書」だけを読む
 2. **F4 の利用者セッション（人間が起動）**: 計画書第7節の二つ目のプロンプト。読んでよいのは docs/adopting.md、docs/harness-plan-template.md、examples/toy-minimal/、公開 API の文書（`htf` の docstring）。本体・plan.md・progress.md・decisions.md は読まない。成果は examples/software-factory/、足りないことは examples/software-factory/docs/adopting-gaps.md
 3. **F4 の往復（通常セッション）**: adopting-gaps.md を読んで本体を直す（toy-minimal で検証してから software factory で再検証。第5.8節）。adopting-gaps.md が空になるまで
 4. **F4 の人間ゲート**: software factory の workflow.yaml のレビュー（MECE、観測可能性、戻り先）。人間に出す前に検証役の事前レビュー
@@ -75,6 +75,7 @@
 
 - decisions.md: ADR-012 / ADR-013 の決定欄に承認を記録。契約への提案 12.13〜12.16、12.25〜12.26 を推奨どおり実装（完了条件を先に別コミット 385144d、6 件失敗 → 実装 bae80b4）: 検査器に `subworkflow_ref`（親子で name 重複）と `subworkflow_user_input`、契約に `start`、`Escalation.cause` に `phase_gate_failed`、CONTRACT 第 7・8 節の改訂
 - README.md を追加。tag v0.1.0、GitHub の public リポジトリ `harness-testing-framework-v2` を作成して push、Release v0.1.0（下記の検証の要旨）
+- 人間の指示「最低限の雛形はおいてください」で `docs/harness-plan-template.md`（最低限版）を追加し push
 - 保護ファイル（contract/、schema/examples の負例、plan.md の改訂）の編集はすべて人間の承認の後
 
 ### 未完了と理由
