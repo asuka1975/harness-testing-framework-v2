@@ -1,0 +1,8 @@
+"""テキストの統計。"""
+
+from textkit.normalize import normalize_whitespace
+
+
+def word_count(text: str) -> int:
+    """空白で区切った語の数。"""
+    return len(normalize_whitespace(text).split(" "))

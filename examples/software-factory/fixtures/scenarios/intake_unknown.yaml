@@ -1,0 +1,8 @@
+# 台本: intake の結果が分類できない（印 unknown）→ escalate。人間は中止
+name: intake_unknown
+outcomes:
+  intake: [unknown]
+human: [abort]
+expect:
+  status: aborted
+  transitions: [escalate_unknown]

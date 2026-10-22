@@ -1,0 +1,8 @@
+# 台本: review がコードの修正を求める → plan へ（境界越え、carry: review_comments）→ 二度目のレビューで承認
+name: review_changes
+outcomes:
+  review: [changes_requested, goal]
+human: []
+expect:
+  status: completed
+  transitions: [next, next, next, next, subworkflow_aggregate, next, next, rollback_across_phase, next, subworkflow_aggregate, next, next, next, next]

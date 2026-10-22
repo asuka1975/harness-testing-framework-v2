@@ -1,0 +1,11 @@
+# ペルソナ: エンドユーザー。欲しいものを曖昧に言う（「いい感じに短く」）。確かめる質問には具体的に答える
+id: end_user
+answers:
+  role: エンドユーザー
+  summary: 記事の一覧画面で使う文字列の加工をしたい
+  features: [URL 用の slug, 語の数, 長い文をいい感じに短くする]
+  constraints: []
+  acceptance: 使ってみて困らなければよい
+clarifications:
+  Q1: 幅を超えたら末尾を ... にして、... を含めて幅に収めてほしい
+release: always

@@ -1,0 +1,6 @@
+"""テキストの統計。"""
+
+
+def word_count(text: str) -> int:
+    """空白で区切った語の数。"""
+    return len(text.split(" "))

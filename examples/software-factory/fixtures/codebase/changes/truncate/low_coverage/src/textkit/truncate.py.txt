@@ -1,0 +1,25 @@
+"""幅に合わせた切り詰め。"""
+
+
+def truncate(text: str, width: int, suffix: str = "...") -> str:
+    """text が width 文字を超える時、末尾を suffix に置き換えて width 文字に収める。"""
+    if width < 0:
+        raise ValueError("width must be non-negative")
+    if len(text) <= width:
+        return text
+    if width <= len(suffix):
+        return suffix[:width]
+    return text[: width - len(suffix)] + suffix
+
+
+def truncate_words(text: str, width: int, suffix: str = "...") -> str:
+    """語の途中で切らないように切り詰める。"""
+    if len(text) <= width:
+        return text
+    words = text.split()
+    kept: list[str] = []
+    for word in words:
+        if len(" ".join([*kept, word])) + len(suffix) > width:
+            break
+        kept.append(word)
+    return " ".join(kept) + suffix

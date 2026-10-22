@@ -1,0 +1,10 @@
+# ペルソナ: プロダクトオーナー。要求を過不足なく、受け入れ基準つきで答える。リリースは常に承認する
+id: product_owner
+answers:
+  role: プロダクトオーナー
+  summary: 社内ツールで使う小さなテキスト処理ライブラリ textkit に機能を三つ足したい
+  features: [URL 用の slug を作る, 語の数を数える, 幅に合わせて切り詰める（末尾は ...）]
+  constraints: [標準ライブラリだけで実装する, 既存の normalize_whitespace の振る舞いを変えない]
+  acceptance: 機能ごとの単体テストが通り、既存のテストも通ること
+clarifications: {}
+release: always              # always | no_unagreed_deferral | later

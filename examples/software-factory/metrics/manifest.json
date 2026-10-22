@@ -1,0 +1,28 @@
+{
+    "metrics": [
+        "intake_complete",
+        "active_requirement_count",
+        "criteria_per_requirement",
+        "open_question_count",
+        "design_covers_requirements",
+        "design_conflict_count",
+        "task_count",
+        "tasks_cover_design",
+        "task_scopes_disjoint",
+        "merged_build_passed",
+        "merged_paths_in_scope",
+        "build_passed",
+        "lint_clean",
+        "changed_paths_in_scope",
+        "unit_tests_passed",
+        "unit_coverage",
+        "suite_passed",
+        "suite_coverage",
+        "suite_lint_clean",
+        "criteria_verified_ratio",
+        "blocking_comment_count",
+        "release_manifest_valid",
+        "changelog_covers_requirements",
+        "release_approved"
+    ]
+}

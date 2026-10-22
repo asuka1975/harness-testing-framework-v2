@@ -1,0 +1,20 @@
+import pytest
+
+from textkit.truncate import truncate
+
+
+def test_exact_width_unchanged():
+    assert truncate("abcde", 5) == "abcde"
+
+
+def test_long_text_is_cut():
+    assert truncate("abcdefghij", 6) == "abc..."
+
+
+def test_tiny_width_uses_suffix_only():
+    assert truncate("abcdefghij", 2) == ".."
+
+
+def test_negative_width_rejected():
+    with pytest.raises(ValueError):
+        truncate("abc", -1)

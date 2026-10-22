@@ -1,0 +1,9 @@
+# 台本: T1 の code が normalize_whitespace の振る舞いを変える（T1 の単体テストは通る）→ verify のスイート全体で
+# 既存のテストが落ちて regression → plan へ（境界越え、carry: regressions）→ 二度目は correct
+name: regression
+child_runs:
+  - code: [regression]
+human: []
+expect:
+  status: completed
+  transitions: [next, next, next, next, subworkflow_aggregate, next, rollback_across_phase, next, subworkflow_aggregate, next, next, next, next]

@@ -1,0 +1,22 @@
+# コンポーネントの目録（design が写し、plan がタスクに分ける）。scope はそのコンポーネントの実装で変更してよいパス
+C1:
+  title: slug 生成（textkit.slug）
+  feature: slug
+  module: src/textkit/slug.py
+  scope: [src/textkit/slug.py, src/textkit/normalize.py, tests/test_slug.py]
+  tests: [tests/test_slug.py]
+  satisfies: [R1, R4]
+C2:
+  title: テキストの統計（textkit.stats）
+  feature: stats
+  module: src/textkit/stats.py
+  scope: [src/textkit/stats.py, tests/test_stats.py]
+  tests: [tests/test_stats.py]
+  satisfies: [R2]
+C3:
+  title: 切り詰め（textkit.truncate）
+  feature: truncate
+  module: src/textkit/truncate.py
+  scope: [src/textkit/truncate.py, tests/test_truncate.py]
+  tests: [tests/test_truncate.py]
+  satisfies: [R3]

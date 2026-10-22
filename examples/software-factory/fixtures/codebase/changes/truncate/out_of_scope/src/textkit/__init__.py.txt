@@ -1,0 +1,6 @@
+"""textkit: 小さなテキスト処理ライブラリ（htf software-factory のフィクスチャ）。"""
+
+from textkit.truncate import truncate
+
+__all__ = ["truncate"]
+__version__ = "0.1.0"

@@ -1,0 +1,10 @@
+# 台本: 事業責任者のペルソナ。要求には即答するが、リリースの承認はその場で答えない → release で中断。
+# 会議の後の回答を resume で与える
+name: busy_sponsor
+persona: busy_sponsor
+answers:
+  - { approved: true, reason: 会議で承認した }
+human: []
+expect:
+  status: completed
+  transitions: [next, next, next, next, subworkflow_aggregate, next, next, next, suspend_resume, next]

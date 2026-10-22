@@ -1,0 +1,11 @@
+# 台本: T3 の code が受け入れ基準 R3-2 のテストを書かない（単体テストとカバレッジは通る）→ verify が criteria_unmet
+# → plan へ（境界越え、carry: unmet_criteria）→ 二度目は correct
+name: criteria_unmet
+child_runs:
+  - {}
+  - {}
+  - code: [missing_test]
+human: []
+expect:
+  status: completed
+  transitions: [next, next, next, next, subworkflow_aggregate, next, rollback_across_phase, next, subworkflow_aggregate, next, next, next, next]

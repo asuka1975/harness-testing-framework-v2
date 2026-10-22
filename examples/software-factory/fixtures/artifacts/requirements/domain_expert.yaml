@@ -1,0 +1,8 @@
+# ドメイン専門家の回答から作る要件の組。R4（かな・漢字を残す）は R1（英数字以外を - にする）と衝突する
+requirements: [R1, R2, R3, R4]
+open_questions: []
+on_conflict:                 # design から carry された衝突への対応: 見送る要件
+  R1+R4: { defer: R4, note: R1 を優先し、R4 は次版で別関数として検討する }
+on_feedback:                 # release で承認されなかった時の対応: 見送りへの合意を記録する
+  agree: [R4]
+  note: R4 は次版で slugify_ja として追加する。今版の既知の制限として CHANGELOG に書く

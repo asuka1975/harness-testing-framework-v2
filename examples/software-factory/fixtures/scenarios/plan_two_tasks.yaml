@@ -1,0 +1,9 @@
+# 台本: plan が統計と切り詰めを一つのタスクにまとめる（goal の一種）→ 子 run は 2 つ
+name: plan_two_tasks
+outcomes:
+  plan: [two_tasks]
+human: []
+expect:
+  status: completed
+  transitions: [next, next, next, next, subworkflow_aggregate, next, next, next, next]
+  child_runs: [2]

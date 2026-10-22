@@ -1,0 +1,14 @@
+# 台本: 二番目の子 run（T2）の code がテストの無い分岐を足す → unit_test が coverage_low → code へ（子の中のフェーズ内、
+# carry: coverage_gaps）→ 直した変更で goal。親から見ると子は全て goal
+name: coverage_low_fixed
+child_runs:
+  - {}
+  - code: [low_coverage, correct]
+human: []
+expect:
+  status: completed
+  transitions: [next, next, next, next, subworkflow_aggregate, next, next, next, next]
+  child_transitions:
+    - [next, next]
+    - [next, rollback_within_phase, next, next]
+    - [next, next]

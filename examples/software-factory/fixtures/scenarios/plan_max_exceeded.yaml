@@ -1,0 +1,8 @@
+# 台本: plan が design_gap を二度 → 辺 (plan, design_gap) の max 1 を超えて escalate。人間は中止
+name: plan_max_exceeded
+outcomes:
+  plan: [design_gap, design_gap]
+human: [abort]
+expect:
+  status: aborted
+  transitions: [next, next, next, rollback_within_phase, next, escalate_max_exceeded]

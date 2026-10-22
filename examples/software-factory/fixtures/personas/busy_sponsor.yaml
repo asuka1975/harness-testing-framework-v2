@@ -1,0 +1,10 @@
+# ペルソナ: 事業責任者。要求には即答するが、リリースの承認は会議を経てからにする（その場では答えない → 中断）
+id: busy_sponsor
+answers:
+  role: 事業責任者
+  summary: 社内ツールで使う小さなテキスト処理ライブラリ textkit に機能を三つ足したい
+  features: [URL 用の slug を作る, 語の数を数える, 幅に合わせて切り詰める（末尾は ...）]
+  constraints: [標準ライブラリだけで実装する]
+  acceptance: 機能ごとの単体テストが通ること
+clarifications: {}
+release: later

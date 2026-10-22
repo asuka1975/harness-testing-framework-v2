@@ -1,0 +1,34 @@
+# 分布テストの基準（fixtures/profiles/markov.yaml の構成）。N と種もここ。区間は仮置き（htf の閾値の扱いに従い、
+# 較正で見直す）。根拠: ステージごとの区間は構成の分布から計算した理論値 ± 約 3 標準誤差（N = 200 run での
+# 評価数から）。run 全体の区間は試走（100 run）の観測 0.55 とマルコフ合成の予測 0.558 を中心に ±0.13。
+#   code first: goal = 1 - (lint + broken + out_of_scope) = 0.93 / reentry: 直した変更しか出ない → 1.0
+#   unit_test first（code が goal の時）: goal = 0.70 / 0.93 = 0.753、tests_failing = 0.15 / 0.93 = 0.161、
+#     coverage_low = 0.08 / 0.93 = 0.086 / reentry: goal 0.85、tests_failing 0.10、coverage_low 0.05
+#   design / plan / review は構成の分布そのもの（plan の goal は goal + two_tasks）
+name: markov
+origin: { kind: workflow_start }
+runs: 200
+seed: 100
+stages:
+  intake:
+    first: { goal: { min: 1.0 } }
+  analyze:
+    first: { goal: { min: 1.0 } }
+  design:
+    first: { goal: { min: 0.83, max: 0.96 }, requirements_conflict: { min: 0.02, max: 0.11 }, unknown: { max: 0.09 } }
+  plan:
+    first: { goal: { min: 0.77, max: 0.92 }, design_gap: { min: 0.05, max: 0.16 }, unknown: { max: 0.10 } }
+    reentry: { goal: { min: 0.85 }, design_gap: { max: 0.0 } }
+  code:
+    first: { goal: { min: 0.89, max: 0.96 }, unknown: { min: 0.04, max: 0.11 } }
+    reentry: { goal: { min: 0.99 } }
+  unit_test:
+    first: { goal: { min: 0.69, max: 0.81 }, tests_failing: { min: 0.11, max: 0.21 }, coverage_low: { min: 0.05, max: 0.13 } }
+    reentry: { goal: { min: 0.75 }, tests_failing: { max: 0.18 }, coverage_low: { max: 0.11 } }
+  review:
+    first: { goal: { min: 0.66, max: 0.89 }, changes_requested: { min: 0.05, max: 0.21 }, design_flaw: { max: 0.11 }, unknown: { max: 0.11 } }
+  release:
+    first: { goal: { min: 1.0 } }
+outcomes:
+  completed: { min: 0.42, max: 0.68 }
+  aborted: { min: 0.32, max: 0.58 }

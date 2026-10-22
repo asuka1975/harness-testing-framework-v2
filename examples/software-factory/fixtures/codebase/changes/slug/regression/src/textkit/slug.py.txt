@@ -1,0 +1,12 @@
+"""slug の生成。"""
+
+import re
+
+from textkit.normalize import normalize_whitespace
+
+_NON_ALNUM = re.compile(r"[^a-z0-9]+")
+
+
+def slugify(text: str) -> str:
+    """英数字以外の連なりを - にする。小文字化は normalize_whitespace に任せる。"""
+    return _NON_ALNUM.sub("-", normalize_whitespace(text)).strip("-")

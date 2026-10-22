@@ -1,0 +1,15 @@
+# 台本: ユーザー入出力がその場で答えられない（DeferringUserIO）→ 中断。回答を一つずつ与えて再開する。
+# intake の 5 問と release の承認 1 問（再開は開始時スナップショットからの再実行。回答は ask の順で累積する）
+name: suspend_resume
+user: deferring
+answers:
+  - プロダクトオーナー
+  - 社内ツールで使う小さなテキスト処理ライブラリ textkit に機能を三つ足したい
+  - [URL 用の slug を作る, 語の数を数える, 幅に合わせて切り詰める]
+  - [標準ライブラリだけで実装する]
+  - 機能ごとの単体テストが通ること
+  - { approved: true, reason: 確認した }
+human: []
+expect:
+  status: completed
+  transitions: [suspend_resume, suspend_resume, suspend_resume, suspend_resume, suspend_resume, next, next, next, next, subworkflow_aggregate, next, next, next, suspend_resume, next]

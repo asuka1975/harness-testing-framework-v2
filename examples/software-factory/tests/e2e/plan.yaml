@@ -1,0 +1,37 @@
+# E2E カバレッジ計画: 親子の全 (stage, class) を、誘発（台本 fixtures/scenarios/）か注入（n 回目の進入の Verdict の
+# 差し替え）で踏む。goal も一つのクラスとして数える。unknown を踏む run は human で止めるか続ける。
+# 注入は Verdict だけを差し替える（成果物と memory は本体のまま）ので、carry を運ぶ end_state は全て誘発で踏む。
+targets:
+  # --- software-factory ---
+  - { workflow: software-factory, stage: intake, state: goal, induce: happy }
+  - { workflow: software-factory, stage: intake, state: unknown, induce: intake_unknown }
+  - { workflow: software-factory, stage: analyze, state: goal, induce: happy }
+  - { workflow: software-factory, stage: analyze, state: ambiguous, induce: end_user_clarify }
+  - { workflow: software-factory, stage: analyze, state: unknown, induce: happy, outcomes: { analyze: [unknown] }, human: [abort] }
+  - { workflow: software-factory, stage: design, state: goal, induce: happy }
+  - { workflow: software-factory, stage: design, state: requirements_conflict, induce: domain_expert_conflict }
+  - { workflow: software-factory, stage: design, state: unknown, induce: happy, outcomes: { design: [unknown] }, human: [abort] }
+  - { workflow: software-factory, stage: plan, state: goal, induce: plan_two_tasks }
+  - { workflow: software-factory, stage: plan, state: design_gap, induce: plan_design_gap }
+  - { workflow: software-factory, stage: plan, state: unknown, induce: happy, outcomes: { plan: [low_confidence] }, human: [abort] }
+  - { workflow: software-factory, stage: implement, state: goal, induce: happy }
+  - { workflow: software-factory, stage: implement, state: tasks_unfinished, induce: tasks_unfinished }
+  - { workflow: software-factory, stage: implement, state: unknown, induce: code_broken_abort }
+  - { workflow: software-factory, stage: verify, state: goal, induce: happy }
+  - { workflow: software-factory, stage: verify, state: regression, induce: regression }
+  - { workflow: software-factory, stage: verify, state: criteria_unmet, induce: criteria_unmet }
+  - { workflow: software-factory, stage: verify, state: unknown, induce: verify_low_confidence }
+  - { workflow: software-factory, stage: review, state: goal, induce: happy }
+  - { workflow: software-factory, stage: review, state: design_flaw, induce: review_design_flaw }
+  - { workflow: software-factory, stage: review, state: changes_requested, induce: review_changes }
+  - { workflow: software-factory, stage: review, state: unknown, induce: review_unknown_rollback }
+  - { workflow: software-factory, stage: release, state: goal, induce: busy_sponsor }
+  - { workflow: software-factory, stage: release, state: rejected, induce: domain_expert_conflict }
+  - { workflow: software-factory, stage: release, state: unknown, inject: { scenario: happy, entry: 1 }, human: [abort] }
+  # --- implement-task（子） ---
+  - { workflow: implement-task, stage: code, state: goal, induce: happy }
+  - { workflow: implement-task, stage: code, state: unknown, induce: code_out_of_scope_rerun }
+  - { workflow: implement-task, stage: unit_test, state: goal, induce: happy }
+  - { workflow: implement-task, stage: unit_test, state: tests_failing, induce: tasks_unfinished }
+  - { workflow: implement-task, stage: unit_test, state: coverage_low, induce: coverage_low_fixed }
+  - { workflow: implement-task, stage: unit_test, state: unknown, inject: { scenario: happy, entry: 1 }, human: [continue_as_goal] }

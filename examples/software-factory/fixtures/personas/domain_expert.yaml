@@ -1,0 +1,11 @@
+# ペルソナ: ドメイン専門家。細部と追加の要求（かな・漢字を残す slug）を持ち込み、黙って見送られることを嫌う
+id: domain_expert
+answers:
+  role: ドメイン専門家
+  summary: 日本語の記事タイトルも扱えるテキスト処理ライブラリにしたい
+  features: [URL 用の slug を作る, slug にかな・漢字を残す, 語の数を数える, 幅に合わせて切り詰める]
+  constraints: [標準ライブラリだけで実装する]
+  acceptance: 機能ごとの単体テストと、日本語の入力の例が通ること
+clarifications: {}
+release: no_unagreed_deferral
+rejection_reason: 合意なしに見送られた要件がある。次版に回すなら既知の制限として明記し、合意を記録してほしい

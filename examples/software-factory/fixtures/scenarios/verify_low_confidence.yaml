@@ -1,0 +1,8 @@
+# 台本: verify の結果は全て通るが、分類の確信度が低い（印 low_confidence）→ unknown → 人間が goal 扱いで続行
+name: verify_low_confidence
+outcomes:
+  verify: [low_confidence]
+human: [continue_as_goal]
+expect:
+  status: completed
+  transitions: [next, next, next, next, subworkflow_aggregate, next, escalate_unknown, next, next, next]

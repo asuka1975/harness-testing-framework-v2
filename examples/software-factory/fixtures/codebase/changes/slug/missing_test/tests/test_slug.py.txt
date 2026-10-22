@@ -1,0 +1,9 @@
+from textkit.slug import slugify
+
+
+def test_basic():
+    assert slugify("Hello World") == "hello-world"
+
+
+def test_symbols():
+    assert slugify("  A  b!!c ") == "a-b-c"

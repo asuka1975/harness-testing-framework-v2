@@ -1,0 +1,4 @@
+# レビューの変種: コードの修正を求める
+comments:
+  - { target: src/textkit/slug.py, severity: blocking, kind: code, text: slugify の docstring に、前後の - を除くことの例を書いてほしい }
+  - { target: src/textkit/slug.py, severity: minor, kind: code, text: 変数名 lowered は normalized の方が意図に合う }

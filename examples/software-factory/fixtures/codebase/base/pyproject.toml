@@ -1,0 +1,10 @@
+# software-factory のフィクスチャ: 実装ステージが変更を当てる小さなコードベース（textkit）
+[project]
+name = "textkit"
+version = "0.1.0"
+description = "小さなテキスト処理ライブラリ（htf software-factory のフィクスチャ）"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

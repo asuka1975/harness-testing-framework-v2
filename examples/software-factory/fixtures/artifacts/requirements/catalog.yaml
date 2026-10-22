@@ -1,0 +1,26 @@
+# 要件の目録（analyze が写す）。受け入れ基準の test は、その基準を確かめるテストの nodeid（verify が照合する）
+roles:                       # intake の「役割」の回答 → 要件の組（このディレクトリの <組>.yaml）
+  プロダクトオーナー: product_owner
+  ドメイン専門家: domain_expert
+  エンドユーザー: end_user
+  事業責任者: product_owner
+requirements:
+  R1:
+    title: 文字列から URL 用の slug を作る
+    criteria:
+      - { id: R1-1, text: 英数字以外の連なりが - になり、小文字になる, test: "tests/test_slug.py::test_basic" }
+      - { id: R1-2, text: 空文字からは空文字を返す, test: "tests/test_slug.py::test_empty" }
+  R2:
+    title: 文の語の数を数える
+    criteria:
+      - { id: R2-1, text: 空白で区切った語の数を返す, test: "tests/test_stats.py::test_counts_words" }
+      - { id: R2-2, text: 空文字は 0 語, test: "tests/test_stats.py::test_empty_is_zero" }
+  R3:
+    title: 文を幅に合わせて切り詰める
+    criteria:
+      - { id: R3-1, text: 幅を超える文は末尾を ... にして幅に収める, test: "tests/test_truncate.py::test_long_text_is_cut" }
+      - { id: R3-2, text: 幅以下の文はそのまま返す, test: "tests/test_truncate.py::test_short_text_unchanged" }
+  R4:
+    title: slug にかな・漢字を残す
+    criteria:
+      - { id: R4-1, text: かな・漢字は slug にそのまま残る, test: "tests/test_slug.py::test_keeps_japanese" }

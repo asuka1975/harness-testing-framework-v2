@@ -1,0 +1,10 @@
+# 台本: プロダクトオーナーの依頼で全ステージが goal。期待する遷移列とゲートを書く
+name: happy
+persona: product_owner
+outcomes: {}
+child_runs: []
+human: []
+expect:
+  status: completed
+  transitions: [next, next, next, next, subworkflow_aggregate, next, next, next, next]
+  gates: ["discovery:passed", "design:passed", "build:passed", "assure:passed", "release:passed"]

@@ -1,0 +1,35 @@
+# markov.yaml と同じ分布だが、T1（slug）の code だけが持続して failing_edge を書く（空文字を untitled にする）。
+# T1 は子 run をやり直しても（plan に戻って implement に入り直しても）同じ失敗を繰り返す。
+# → unit_test の tests_failing クラスの中で、代表（carry の test_failures = 失敗したテスト）ごとに再進入の分布が違う
+#   （T1 の test_empty は必ず再び落ち、他のタスクの失敗はたいてい直る）。独立性検証の検出対象
+# → タスクごとの持続する振る舞いを pooled の遷移行列では表せず、マルコフ合成の run 全体の予測が外れる
+name: split
+persona: product_owner
+human: [abort]
+distributions:
+  design:
+    first: { goal: 0.9, requirements_conflict: 0.06, unknown: 0.04 }
+    reentry: { goal: 0.95, unknown: 0.05 }
+  plan:
+    first: { goal: 0.6, two_tasks: 0.25, design_gap: 0.1, unknown: 0.05 }
+    reentry: { goal: 0.7, two_tasks: 0.25, unknown: 0.05 }
+  code:
+    first:
+      correct: 0.62
+      failing: 0.08
+      failing_edge: 0.07
+      low_coverage: 0.08
+      regression: 0.05
+      missing_test: 0.03
+      lint: 0.03
+      broken: 0.02
+      out_of_scope: 0.02
+    reentry: { correct: 0.85, failing: 0.05, failing_edge: 0.05, low_coverage: 0.05 }
+  review:
+    first: { goal: 0.78, changes_requested: 0.12, design_flaw: 0.05, unknown: 0.05 }
+    reentry: { goal: 0.9, changes_requested: 0.05, unknown: 0.05 }
+split:
+  stage: code
+  unit: T1
+  first: { failing_edge: 1.0 }
+  reentry: { failing_edge: 1.0 }

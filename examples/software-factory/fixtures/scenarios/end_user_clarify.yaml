@@ -1,0 +1,8 @@
+# 台本: エンドユーザーの曖昧な依頼 → analyze が ambiguous → intake へ（フェーズ内、carry: open_questions）。
+# intake の再進入で Q1 を尋ね、ペルソナが具体的に答える → 以降は goal
+name: end_user_clarify
+persona: end_user
+human: []
+expect:
+  status: completed
+  transitions: [next, rollback_within_phase, next, next, next, next, subworkflow_aggregate, next, next, next, next]

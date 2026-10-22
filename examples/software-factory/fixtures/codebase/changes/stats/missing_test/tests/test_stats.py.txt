@@ -1,0 +1,9 @@
+from textkit.stats import word_count
+
+
+def test_counts_words():
+    assert word_count("one two  three") == 3
+
+
+def test_blank_is_zero():
+    assert word_count("   ") == 0

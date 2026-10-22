@@ -1,0 +1,9 @@
+# 台本: T2 の unit_test は全て通るが分類の確信度が低い → 子 unknown → 集約の unknown 規則で親 unknown。人間は中止
+name: unit_test_unknown
+child_runs:
+  - {}
+  - unit_test: [low_confidence]
+human: [abort]
+expect:
+  status: aborted
+  transitions: [next, next, next, next, subworkflow_aggregate, escalate_unknown]

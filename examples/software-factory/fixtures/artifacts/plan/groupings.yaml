@@ -1,0 +1,10 @@
+# plan の変種: design.json のコンポーネントのタスクへの分け方。タスクの scope / tests は components.yaml から作る
+goal:                        # コンポーネントごとに一つのタスク
+  - [C1]
+  - [C2]
+  - [C3]
+two_tasks:                   # 統計と切り詰めを一つのタスクにまとめる（goal の一種。子 run の数が変わる）
+  - [C1]
+  - [C2, C3]
+design_gap:                  # 最後のコンポーネントをどのタスクにも割り当てない（design.json のコンポーネント順で決まる）
+  drop_last: true

@@ -1,0 +1,3 @@
+# レビューの変種: 承認。blocking の指摘なし
+comments:
+  - { target: src/textkit/slug.py, severity: minor, kind: code, text: 正規表現をモジュール定数にしているのは良い }

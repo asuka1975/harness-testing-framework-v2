@@ -1,0 +1,5 @@
+# プロダクトオーナー（事業責任者も同じ）の回答から作る要件の組。未決の質問も衝突も無い
+requirements: [R1, R2, R3]
+open_questions: []
+on_conflict: {}              # 実在する衝突は無い。carry された衝突は「確認した、両立する」と記録する
+on_feedback: {}

@@ -1,0 +1,8 @@
+# 台本: plan が最後のコンポーネントを割り当てない → design へ（フェーズ内、carry: uncovered_components）→ 二度目は goal
+name: plan_design_gap
+outcomes:
+  plan: [design_gap, goal]
+human: []
+expect:
+  status: completed
+  transitions: [next, next, next, rollback_within_phase, next, next, subworkflow_aggregate, next, next, next, next]

@@ -1,0 +1,8 @@
+# エンドユーザーの回答から作る要件の組。切り詰めの仕方が曖昧で、確かめるまで R3 の受け入れ基準を決められない
+requirements: [R1, R2, R3]
+open_questions:
+  - id: Q1
+    question: "[Q1] 長い文はどう短くしますか？（幅と、末尾に付ける記号）"
+    blocks: [R3]
+on_conflict: {}
+on_feedback: {}

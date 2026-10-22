@@ -1,0 +1,9 @@
+# 台本: review が分類できない（印 unknown）→ 人間が plan へ戻す（RollbackTo。辺の max を消費しない。遷移は
+# rollback_across_phase として記録される）→ 二度目は承認
+name: review_unknown_rollback
+outcomes:
+  review: [unknown, goal]
+human: ["rollback_to:plan"]
+expect:
+  status: completed
+  transitions: [next, next, next, next, subworkflow_aggregate, next, next, escalate_unknown, rollback_across_phase, next, subworkflow_aggregate, next, next, next, next]

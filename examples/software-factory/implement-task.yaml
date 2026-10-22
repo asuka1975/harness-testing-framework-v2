@@ -1,0 +1,87 @@
+# software-factory の子ワークフロー。タスク一つにつき一回起動される（親: workflow.yaml の implement）
+# 親から memory の鍵 task（tasks.json の一項目: id, features, scope, tests, notes）を受け取る。
+# 作業ディレクトリは親の tasks/<i>/。code と unit_test は fixtures のコードベースに対して実際にツールを走らせる。
+workflow:
+  name: implement-task
+  description: タスク一つの変更を書き、そのタスクの単体テストで確かめる
+  version: "0.1"
+  inputs: [task]
+  phases:
+    - id: develop
+      name: Develop
+      description: タスクの変更を書き、単体テストで確かめる
+      goal:
+        qualitative: タスクの変更がビルドでき、そのタスクの単体テストが全て通る
+        quantitative:
+          unit_tests_passed:
+            description: unit/report.json の単体テストが一件以上あり、全て通っている
+            equals: true
+      stages:
+        - id: code
+          name: Code
+          description: >-
+            fixtures のコードベースにタスクの変更を当てて repo/ に置き、ビルド（全 .py のバイトコンパイル）、
+            lint（ruff）、base から変わったパスと task.scope の照合を行って code.json に書く。
+            unit_test から test_failures / coverage_gaps を carry された再進入では、それを直した変更を書く
+          artifacts:
+            writes: [repo/, code.json]
+            memory_in: [task, test_failures, coverage_gaps]
+          goal:
+            qualitative: >-
+              repo/ がタスクの変更を含み、code.json に、ビルドの成功、lint の違反が無いこと、
+              base から変わったパスがすべて task.scope の中にあることが記録されている。
+            quantitative:
+              build_passed:
+                description: repo/ の全 .py がバイトコンパイルできる
+                equals: true
+              lint_clean:
+                description: repo/ に ruff の違反が無い
+                equals: true
+              changed_paths_in_scope:
+                description: repo/ で fixtures の base から変わったパスがすべて task.scope の中にある
+                equals: true
+          end_state:
+            - id: unknown
+              description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
+          rollback: []
+        - id: unit_test
+          name: Unit test
+          description: >-
+            repo/ でタスクのテストファイル（task.tests）だけを pytest とカバレッジで走らせ、結果を
+            unit/report.json に書く。失敗したテストを test_failures に、カバーされていない行を coverage_gaps に出す
+          artifacts:
+            reads: [repo/, code.json]
+            writes: [unit/]
+            memory_in: [task]
+            memory_out: [test_failures, coverage_gaps]
+          goal:
+            qualitative: >-
+              unit/report.json に、task.tests の全てのテストが通り、task.scope のうち src/ 配下のファイルの
+              行カバレッジが基準以上であることが記録されている。
+            quantitative:
+              unit_tests_passed:
+                description: unit/report.json の単体テストが一件以上あり、全て通っている
+                equals: true
+              unit_coverage:
+                description: unit/report.json に記録された、task.scope のうち src/ 配下のファイルの行カバレッジ
+                min: 0.9
+          end_state:
+            - id: tests_failing
+              description: >-
+                unit/report.json で task.tests のテストが一件以上 failed か error になっている。失敗したテストの
+                nodeid の一覧が unit/report.json の failed にある。この状態は coverage_low に優先する。
+            - id: coverage_low
+              description: >-
+                unit/report.json で全てのテストは通っているが、task.scope のうち src/ 配下のファイルの行カバレッジが
+                0.9 未満で、カバーされていない行の一覧がファイルごとに unit/report.json の coverage_gaps にある。
+            - id: unknown
+              description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
+          rollback:
+            - state: tests_failing
+              stage: code
+              carry: [test_failures]
+              max: 1
+            - state: coverage_low
+              stage: code
+              carry: [coverage_gaps]
+              max: 1
