@@ -1,0 +1,46 @@
+# subworkflow.pass の鍵が carry でしか来ない（初回進入では memory に無い）定義。adopting-gaps G-04
+workflow:
+  name: pass_carry
+  description: fan が pass で hint を子に渡す。hint は check からの carry でしか来ない
+  phases:
+    - id: p
+      name: P
+      description: フェーズ
+      goal: { qualitative: 完了, quantitative: {} }
+      stages:
+        - id: seed
+          name: Seed
+          description: items を出す
+          artifacts: { writes: [seed.json], memory_out: [items] }
+          goal:
+            qualitative: seed.json がある
+            quantitative:
+              seed_exists: { description: seed.json がある, equals: true }
+          end_state:
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback: []
+        - id: fan
+          name: Fan
+          description: items ごとに子を起動し、hint があれば渡す
+          artifacts: { writes: [runs/], memory_in: [items, hint] }
+          subworkflow:
+            ref: pass_carry_child.yaml
+            each: items
+            item_as: item
+            pass: [hint]
+            workspace: runs/
+            aggregate: []
+          goal: { qualitative: 全ての子 run が goal, quantitative: {} }
+          end_state:
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback: []
+        - id: check
+          name: Check
+          description: 子の成果物を検査し、bad なら hint を持って fan へ戻る
+          artifacts: { reads: [runs/], writes: [check.json], memory_out: [hint] }
+          goal: { qualitative: check.json が goal を記録している, quantitative: {} }
+          end_state:
+            - { id: bad, description: check.json の outcome が bad である }
+            - { id: unknown, description: 上記に当てはまらない。人間に差し戻す }
+          rollback:
+            - { state: bad, stage: fan, carry: [hint], max: 1 }
