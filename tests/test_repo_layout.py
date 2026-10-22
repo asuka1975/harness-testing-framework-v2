@@ -43,6 +43,8 @@ PLAN_PATH = ROOT / "docs" / "plan.md"
         "src/htf/testing/triage",
         "examples/toy-minimal/stages",
         "examples/toy-minimal/tests",
+        "examples/software-factory/tests",
+        "examples/software-factory/docs",
         "docs",
         "reports",
         "tests",
@@ -50,12 +52,6 @@ PLAN_PATH = ROOT / "docs" / "plan.md"
 )
 def test_skeleton_dir_exists(rel: str) -> None:
     assert (ROOT / rel).is_dir(), rel
-
-
-def test_software_factory_is_not_pre_created() -> None:
-    # F4 の利用者セッションが adopting.md と雛形だけから作る成果物。骨格を先に置かない
-    # F4 が始まったらこのテストは外す（progress.md に記録すること）
-    assert not (ROOT / "examples" / "software-factory").exists()
 
 
 def _load_schema() -> dict:
