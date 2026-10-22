@@ -4,7 +4,11 @@
 
 ## 次にやること
 
-**F5（v1.0）に着手（人間の指示「次に進んでください」）。** F4 の人間ゲートは「全て推奨で」で通過（ADR-014）。software factory は版 0.2（120 passed、整合性検査 0 件）、契約への提案 14.1〜14.5 は実装済み（htf 153 passed）。未 push のコミットあり（F4 取り込み以降。push は人間の指示で）。
+**F5（v1.0）の本体と第三者検証が済み、v1.0 の人間ゲートで止まっている。** 検証役 `f5-release` の判定: F5 の完了条件 5 項目すべて「満たす」、先送りの第三者判定（G-04/05/06/08/16、14.2〜14.5、同期バージョン管理）は固定されている、高の問題なし（`reports/verification/f5-release/report.md`、`reports/dynamic/f5-release/record.md`）。未 push のコミットあり（F4 取り込み以降。push は人間の指示で）。
+
+**v1.0 ゲートで決めてほしいこと（ADR-015「ゲートで決めてほしい事項」V1〜V4）**: V1 v1.0 の公開承認（タグ `v1.0.0`、GitHub Release、push）、V2 ADR-006（推奨 (a): v1.0 の後に software factory の一ステージを recorder 経由で本物にし、較正で閾値を決める）、V3 ADR-014 14.6 の小決定 11 件の承認、V4 ADR-015 15.1〜15.6 の承認。承認後の作業: タグと Release と push（指示で）、ADR の決定欄の記入。公開後の候補: carry の閉包テストの雛形化（検査器は閉包を見ない設計のまま）、GitHub Actions 上での三段の実走の確認。
+
+（以下は F5 着手時の作業単位。全て済）
 
 F5 の作業単位（第5.1節。この順。完了条件は `tests/test_f5_release.py` に先に書く）:
 - F5-1 完了条件のテスト（版 1.0.0、`oracle` マーカー、CI の三段、expectations / 計画の `workflow_version`、maintenance.md、雛形と sf 計画書の見出しの一致、adopting-gaps 全処置、adopting.md 完成版、README）を失敗する状態で別コミット
@@ -103,6 +107,7 @@ F5 の作業単位（第5.1節。この順。完了条件は `tests/test_f5_rele
 - **F4 ゲートの決定「全て推奨で」を記録**（ADR-014 の決定欄と、版 0.2 の実装で確定する小決定 14.6.1〜14.6.11。adopting-gaps.md に処置の状況の表）
 - **software factory を版 0.2 に**（人間の承認を受けた定義の変更に本体を追従させるため、通常セッションが利用者の成果物を編集。理由は sf の progress.md に記録）: 完了条件を先に別コミット（`tests/test_sf_v02.py`、台本 26 本、E2E 計画 43 対象、既存テストの改訂。実装前 51 failed / 54 passed / 3 errors）→ 保護ファイル（`workflow.yaml`、`implement-task.yaml`、expectations）を計画エージェントが編集 → 本体（`Check` / `Integrate`、report と results の分離、approval の kind、manifest の base_version、ペルソナ `quality_lead`、指標 28）→ テストの修正を別コミット（aggregate の属性名、check / results.json に合わせた指標テスト、オラクルの許容幅、E2E の注入 4）→ 120 passed。sf の docs（plan.md、progress.md、台本 README）を版 0.2 に更新。adopting.md 3.1 に carry の閉包と `max` の run 全体性を追記
 - 誘発できないクラス 3 つ（integrate / merge_failed、verify / coverage_short、verify / lint_dirty）は注入で踏み、本体の論理は手作りの成果物で単体テスト（ADR-014 14.6.8）
+- **F5-5 検証役 `f5-release`**（宣言 → 起動 → 受け入れ。記録は `reports/dynamic/f5-release/record.md`）: 判定はすべて「満たす」、探針 4 本・40 項目で製品の不具合 0、高の問題なし。処理: 探針 2 本を退行テストに（人間の Rerun / RollbackTo の下の `ctx.entry`、違う context での再生の `ReplayMismatch`）、低の文書の指摘 4 件を直した（adopting-gaps の要約の時制、sf 計画書の雛形の呼称、雛形第 9 節の読み替え条項、sf の `__version__`）。検査器が carry の閉包を見ないのは設計どおり（ADR-014 G-22）
 - **F5-1〜F5-4（v1.0 の本体）**: 完了条件 `tests/test_f5_release.py` を先に別コミット（15 failed / 1 passed）→ 版 1.0.0（pyproject と `htf.__version__`）、マーカー `oracle`、CI の三段（常時 / ナイトリー / 手動。runtime カバレッジは常時の部分集合で 92.84%）、同期バージョン管理（expectations と E2E 計画の `workflow_version` を runner が照合、コーパスとトリアージの項目に版。toy と sf の expectations・計画に `"0.2"`）、`docs/maintenance.md`（新規）、雛形の完成版（第 0〜9 節 + 付録の骨格を維持。sf の計画書と見出しが一致することをテストで固定）、adopting.md の完成版（規則は不変。第 8 節 実例の一巡、第 9 節 落とし穴）、README、sf 計画書第 9 節、ADR-015（小決定 15.1〜15.6 とゲートで決めてほしい事項 V1〜V4）→ 16 passed
 - **契約への提案 14.1〜14.5 を実装**（承認済み。完了条件 `tests/test_f4_contract_proposals.py` を先に別コミット、10 failed → 実装 → 10 passed）: `StageContext.entry` / `reentry` / `child_outcomes`、`UserIO.ask(..., context=None)`（累積列・recorder・テストダブル・toy と sf のペルソナ）、`Runner(max_document_chars=)` と投影の順序（memory_in → writes → reads。`MarkerClassifier` は writes 節だけを見る）、CONTRACT 第 7 節 1 の `pass` の文言。CONTRACT と adopting.md を改訂。ADR-014 の状態を「決定」に
 - **人間の指示で Codex（GPT-6-Astra、reasoning effort max）に定義 2 ファイルの独立レビュー**（第5.10節の宣言 `f4-sf-definition-review`。読取制限は隔離ディレクトリで構造的に課し、既存の 11 件は渡さない）。2 ターン（独立レビュー 31 分 + 前提の訂正 13 分）、書き込み 0。最後のメッセージを `reports/verification/f4-sf-definition-review/report.md` にそのまま写し、既存 11 件との突き合わせ（矛盾なし、重大度の引き上げ 5、新規 9）を `reports/dynamic/f4-sf-definition-review/record.md` に、採否の推奨の更新と契約への提案 14.5 を ADR-014 に書いた。定義は変えていない
@@ -476,8 +481,12 @@ F5:
 $ uv run pytest -o addopts="" -q tests/test_f5_release.py                 → 15 failed, 1 passed（テスト先行、実装前）→ 実装後 16 passed
 $ uv run pytest -q -m "not distribution and not e2e and not oracle" --cov=htf.runtime --cov-fail-under=90
                                                                            → Total coverage: 92.84%（常時の段の部分集合。基準 90% は据え置き）
-$ uv run pytest -o addopts="" -q tests                                     → 2 failed, 168 passed（ADR-015 の推奨欄と __version__ の更新漏れ → 直して 170 相当。検証役が再実行）
+$ uv run pytest -o addopts="" -q tests                                     → 2 failed, 168 passed（ADR-015 の推奨欄と __version__ の更新漏れ）→ 直して 170 passed（検証役）
 $ uv run pytest -o addopts="" -q examples/software-factory/tests          → 120 passed in 149.97s
+検証役 f5-release の受け入れ（本セッションで再実行。探針の退行テスト 2 件と低の文書修正の後）:
+$ uv run pytest -o addopts="" -q tests                                     → 172 passed in 68.50s
+$ uv run pytest -o addopts="" -q examples/software-factory/tests          → 120 passed
+$ git status --short（受け入れ前）                                          → ?? reports/verification/f5-release/ のみ
 分布の実測（markov N = 200）: completed 0.83（マルコフ合成の予測 0.832）、check first goal 0.913 → reentry 1.0、unit_test first goal 0.755 → reentry 0.855、
   plan first design_incomplete 0.031。独立性 unit_test / tests_failing: markov p = 0.204（検出なし）、split p = 0.005（検出）。split の合成は外れる（差 0.445）
 ```
@@ -494,6 +503,7 @@ $ uv run pytest -o addopts="" -q examples/software-factory/tests          → 12
 - **予算**: トークン 25 万、時間 30 分、フレームワーク外の LLM 呼び出し 0
 - **反復の上限**: 1。**入れ子の深さ**: 0
 - **受け入れ**: 報告を読んだ後、本セッションで両スイートを再実行し、`git status` で書き込み先を確かめて受け入れる
+- **実績（起動後に追記）**: 約 209,000 トークン（上限 25 万）、約 20 分（上限 30 分）、ツール呼び出し 55 回、外部 LLM 0。書いたのは `reports/verification/f5-release/report.md` のみ。判定: 正常
 
 ### 動的ワークフローの宣言（第5.10節）: `f4-sf-definition-review`
 
