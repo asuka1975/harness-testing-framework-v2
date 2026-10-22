@@ -12,6 +12,7 @@ from typing import Protocol, runtime_checkable
 
 from .types import (
     Carry,
+    ChildOutcome,
     Classification,
     ClassOption,
     Escalation,
@@ -29,8 +30,18 @@ from .types import (
 class UserIO(Protocol):
     """ユーザー入出力（決定 #4）。user_input: true のステージの本体だけが使える。"""
 
-    def ask(self, question: str, *, schema: dict[str, JsonValue] | None = None) -> JsonValue:
-        """質問して回答を返す。その場で答えられない実装は WaitingForUser を投げる。"""
+    def ask(
+        self,
+        question: str,
+        *,
+        schema: dict[str, JsonValue] | None = None,
+        context: dict[str, JsonValue] | None = None,
+    ) -> JsonValue:
+        """質問して回答を返す。その場で答えられない実装は WaitingForUser を投げる。
+
+        context は質問の根拠（見送られた要件、失敗の一覧など）を構造で渡す任意の JSON（ADR-014 14.4）。
+        シミュレータや実 UI はこれを表示や判断に使ってよいが、無くても答えられる質問文にする。
+        """
         ...
 
 
@@ -73,6 +84,27 @@ class StageContext(Protocol):
     @property
     def memory(self) -> Mapping[str, JsonValue]:
         """memory_in に宣言した鍵だけが見える。"""
+        ...
+
+    @property
+    def entry(self) -> int:
+        """この run でのこのステージへの進入回数（1 始まり。runtime と同じ規則。ADR-014 14.2）。
+
+        ロールバックで戻された再進入と人間の Rerun で増え、中断からの再開では増えない。子 run は run ごとに 1 から。
+        """
+        ...
+
+    @property
+    def reentry(self) -> bool:
+        """entry > 1。分布の集計の first / reentry と同じ区別。"""
+        ...
+
+    @property
+    def child_outcomes(self) -> Sequence[ChildOutcome]:
+        """子を持つステージの本体が、この進入で終わった子 run の終わり方を index 順に読む（ADR-014 14.3）。
+
+        子を持たないステージでは空。本体は成果物の事実と併せて使う（集約の判定は runtime が aggregate 規則で行う）。
+        """
         ...
 
     def emit(self, key: str, value: JsonValue) -> None:

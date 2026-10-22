@@ -86,12 +86,19 @@ def _render_file(root: Path, rel: str, max_chars: int = MAX_FILE_CHARS) -> str:
 
 
 def project(
-    stage: Stage, snapshot: Snapshot, workspace: Path, *, max_file_chars: int = MAX_FILE_CHARS
+    stage: Stage,
+    snapshot: Snapshot,
+    workspace: Path,
+    *,
+    max_file_chars: int = MAX_FILE_CHARS,
+    max_document_chars: int | None = None,
 ) -> str:
-    """分類器に渡す状態文書。reads ∪ writes ∪ memory_in から組み立てる（CONTRACT 第 5.4 節）。
+    """分類器に渡す状態文書。memory_in ∪ writes ∪ reads の順に組み立てる（CONTRACT 第 5.4 節）。
 
-    reads は作業ディレクトリ（前方のステージの成果物）から、writes はスナップショットから読む。
-    1 ファイルは max_file_chars で切る（既定 4000。adopting-gaps G-08）。要旨は成果物の先頭に置く。
+    writes（このステージの成果物。判定の根拠）を reads（前方のステージの成果物。参照）より前に置く（ADR-014 14.5 (b)）。
+    reads は作業ディレクトリから、writes はスナップショットから読む。1 ファイルは max_file_chars で切る
+    （既定 4000。adopting-gaps G-08）。文書全体は max_document_chars で切る（None は無制限。14.5 (a)）。
+    切り詰めは明示の印で示す。要旨は成果物の先頭に置く。
     """
     import json
 
@@ -101,13 +108,17 @@ def project(
             parts.append(
                 f"- {key}: {json.dumps(snapshot.memory[key], ensure_ascii=False, sort_keys=True)}\n"
             )
-    parts.append("## reads\n")
-    for rel in stage.artifacts.reads:
-        parts.append(_render_file(workspace, rel, max_file_chars))
     parts.append("## writes\n")
     for rel in stage.artifacts.writes:
         parts.append(_render_file(snapshot.files, rel, max_file_chars))
-    return "".join(parts)
+    parts.append("## reads\n")
+    for rel in stage.artifacts.reads:
+        parts.append(_render_file(workspace, rel, max_file_chars))
+    document = "".join(parts)
+    if max_document_chars is not None and len(document) > max_document_chars:
+        omitted = len(document) - max_document_chars
+        document = document[:max_document_chars] + f"\n…（文書全体 {omitted} 文字省略）\n"
+    return document
 
 
 def class_options(stage: Stage) -> list[ClassOption]:
@@ -125,6 +136,7 @@ def evaluate_stage_detailed(
     classifier: Classifier,
     threshold: float,
     max_file_chars: int = MAX_FILE_CHARS,
+    max_document_chars: int | None = None,
 ) -> tuple[Verdict, str | None, Classification | None]:
     """CONTRACT 第 4 節の順序: goal 指標 → goal 定性 → end_state → unknown。
 
@@ -139,7 +151,13 @@ def evaluate_stage_detailed(
             None,
         )
 
-    document = project(stage, snapshot, workspace, max_file_chars=max_file_chars)
+    document = project(
+        stage,
+        snapshot,
+        workspace,
+        max_file_chars=max_file_chars,
+        max_document_chars=max_document_chars,
+    )
     result = classifier.classify(document, class_options(stage))
     confident = result.confidence >= threshold
 

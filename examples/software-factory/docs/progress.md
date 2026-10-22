@@ -4,7 +4,7 @@
 
 ## 次にやること
 
-- htf の契約の提案 14.2〜14.5（進入回数、子 run の終わり方、`ask` の文脈、状態文書の総量）が実装されたら、本体をそれに合わせる（`sources.py` の進入回数の数え直し、`Implement` の子の終わり方の読み取りを `child_outcomes` に、`Release` の質問の文脈）
+- htf の契約の提案 14.2〜14.5（進入回数、子 run の終わり方、`ask` の文脈、状態文書の総量）は実装された。本体は `PersonaUserIO` の署名（`context=None`）だけ追従した。任意の置き換え: `sources.py` の進入回数の数え直しを `ctx.entry` / `ctx.reentry` に、`Implement` の summary に `ctx.child_outcomes` を併記、`Release` の質問に `context`（見送った要件の一覧）を添える、`reads: [codebase/]` を持つ verify / review / release のために `Runner(max_document_chars=)` を harness で設定する
 - 頻度を見てから決める項目（ADR-014: plan の scope_overlap、release の成果物不備、reads と writes の食い違い、稀な unknown）をトリアージで集める
 - 人手ラベル（plan.md 第 4 節）と実分類器の較正（第 5 節）は、LLM を入れる段で
 

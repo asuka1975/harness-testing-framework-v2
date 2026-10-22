@@ -40,7 +40,13 @@ class PersonaUserIO:
     def name(self) -> str:
         return self.persona["id"]
 
-    def ask(self, question: str, *, schema: dict[str, JsonValue] | None = None) -> JsonValue:
+    def ask(
+        self,
+        question: str,
+        *,
+        schema: dict[str, JsonValue] | None = None,
+        context: dict[str, JsonValue] | None = None,
+    ) -> JsonValue:
         self.asked.append(question)
         for key, text in INTAKE_QUESTIONS:
             if question == text and key in self.persona["answers"]:

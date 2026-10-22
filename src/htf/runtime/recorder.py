@@ -129,13 +129,20 @@ class RecordedUserIO(UserIO):
         self._inner = inner
         self._recorder = recorder
 
-    def ask(self, question: str, *, schema: dict[str, JsonValue] | None = None) -> JsonValue:
+    def ask(
+        self,
+        question: str,
+        *,
+        schema: dict[str, JsonValue] | None = None,
+        context: dict[str, JsonValue] | None = None,
+    ) -> JsonValue:
         def live() -> JsonValue:
             _require(self._inner, "UserIO")
             assert self._inner is not None
-            return self._inner.ask(question, schema=schema)
+            return self._inner.ask(question, schema=schema, context=context)
 
-        return self._recorder.call("user", {"question": question, "schema": schema}, live)
+        request: JsonValue = {"question": question, "schema": schema, "context": context}
+        return self._recorder.call("user", request, live)
 
 
 class RecordedClassifier(Classifier):

@@ -642,7 +642,7 @@ ADR-001〜010 の決定を実装に落とす時に、計画書にも ADR にも�
 
 ## ADR-014 F4 の往復: software factory の adopting-gaps の処置と、契約への提案
 
-- 状態: 提案（F4 の人間ゲートで承認。契約への提案は承認まで実装しない）
+- 状態: 決定（2026-10-22 人間が承認「全て推奨で」）。契約への提案 14.1〜14.5 は同日に実装済み（14.5 (c) は頻度を見てから）。software factory は版 0.2
 - 強制点: F4 ゲート（software factory の workflow.yaml レビュー）
 - 起票: 2026-10-22
 
@@ -755,6 +755,8 @@ F4 の利用者セッションが adopting.md と雛形だけから software fac
 - push は推奨に含めていないので行わない（人間の指示待ち）
 
 承認後の順序: software factory の定義を版 0.2 に（テストを先に別コミット）→ 本体・台本・E2E 計画・expectations → 契約の提案の実装（toy-minimal で検証 → software factory で再検証）→ F5。
+
+実装の記録（同日）: 14.1 CONTRACT 第 7 節 1 の文言。14.2 `StageContext.entry` / `reentry`（`RunContext`、runtime の進入回数をそのまま渡す）。14.3 `StageContext.child_outcomes`（子を持つステージの本体に、その進入の `ChildOutcome` の列）。14.4 `UserIO.ask(..., context=None)`（累積列は None の時は渡さない。recorder は要求の一部として記録）。14.5 (a) `Runner(max_document_chars=)` / `project(..., max_document_chars=)`（明示の印で切る）、(b) 投影の順序を memory_in → writes → reads に（CONTRACT 第 5.4 節、adopting.md 3.6。`MarkerClassifier` は writes 節だけを見る）。完了条件は `tests/test_f4_contract_proposals.py`（先に別コミット）。htf 153 passed、software factory は追従（`PersonaUserIO` の署名）して再検証。
 
 ### 14.6 版 0.2 の実装で確定する小決定（承認の範囲内の実装の詳細。F5 ゲートで承認）
 

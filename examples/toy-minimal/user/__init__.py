@@ -13,7 +13,13 @@ class PersonaUserIO:
         self.claims = list(claims)
         self.asked: list[str] = []
 
-    def ask(self, question: str, *, schema: dict[str, JsonValue] | None = None) -> JsonValue:
+    def ask(
+        self,
+        question: str,
+        *,
+        schema: dict[str, JsonValue] | None = None,
+        context: dict[str, JsonValue] | None = None,
+    ) -> JsonValue:
         self.asked.append(question)
         if question == "題目は?":
             return self.title

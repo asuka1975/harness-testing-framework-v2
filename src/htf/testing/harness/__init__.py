@@ -64,20 +64,62 @@ class ScriptedHuman:
 class DeferringUserIO:
     """その場では答えられない UserIO。常に WaitingForUser を投げる（中断の経路を踏むため）。"""
 
-    def ask(self, question: str, *, schema: dict[str, JsonValue] | None = None) -> JsonValue:
+    def ask(
+        self,
+        question: str,
+        *,
+        schema: dict[str, JsonValue] | None = None,
+        context: dict[str, JsonValue] | None = None,
+    ) -> JsonValue:
         raise WaitingForUser(question, schema)
 
 
 class QueueUserIO:
-    """回答を順に返す UserIO。尽きたら WaitingForUser。"""
+    """回答を順に返す UserIO。尽きたら WaitingForUser。受け取った文脈は contexts に残る。"""
 
     def __init__(self, answers: Iterable[JsonValue]) -> None:
         self._answers = list(answers)
+        self.contexts: list[dict[str, JsonValue] | None] = []
 
-    def ask(self, question: str, *, schema: dict[str, JsonValue] | None = None) -> JsonValue:
+    def ask(
+        self,
+        question: str,
+        *,
+        schema: dict[str, JsonValue] | None = None,
+        context: dict[str, JsonValue] | None = None,
+    ) -> JsonValue:
+        self.contexts.append(context)
         if not self._answers:
             raise WaitingForUser(question, schema)
         return self._answers.pop(0)
+
+
+def writes_block(document: str) -> str:
+    """状態文書の `## writes` 節だけ（次の節見出し `## reads` などの手前まで）を返す。
+
+    成果物の中身はコードフェンスで囲まれて並ぶので、フェンスの中の `## ` で始まる行（Markdown の見出し）は節の
+    区切りと見なさない。`## writes` の見出しが無い文書はそのまま返す（ADR-014 14.5 (b): writes は reads より前）。
+    """
+    lines = document.split("\n")
+    out: list[str] = []
+    in_writes = False
+    in_fence = False
+    found = False
+    for line in lines:
+        if line.startswith("```"):
+            in_fence = not in_fence
+            if in_writes:
+                out.append(line)
+            continue
+        if not in_fence and line.startswith("## "):
+            if in_writes:
+                break
+            in_writes = line.rstrip() == "## writes"
+            found = found or in_writes
+            continue
+        if in_writes:
+            out.append(line)
+    return "\n".join(out) if found else document
 
 
 class MarkerClassifier:
@@ -99,7 +141,7 @@ class MarkerClassifier:
         self.calls: list[str] = []
 
     def classify(self, document: str, options: Sequence[ClassOption]) -> Classification:
-        section = document.split("## writes", 1)[-1]
+        section = writes_block(document)
         marker = None
         for pattern in self._PATTERNS:
             for m in pattern.finditer(section):
@@ -135,4 +177,5 @@ __all__ = [
     "ScriptedHuman",
     "load_example_package",
     "observed_kinds",
+    "writes_block",
 ]

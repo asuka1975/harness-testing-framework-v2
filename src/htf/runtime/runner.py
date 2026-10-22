@@ -165,14 +165,24 @@ class _QueuedUserIO(UserIO):
         self._fallback = fallback
         self._cursor = 0
 
-    def ask(self, question: str, *, schema: dict[str, JsonValue] | None = None) -> JsonValue:
+    def ask(
+        self,
+        question: str,
+        *,
+        schema: dict[str, JsonValue] | None = None,
+        context: dict[str, JsonValue] | None = None,
+    ) -> JsonValue:
         if self._cursor < len(self._answers):
             answer = self._answers[self._cursor]
             self._cursor += 1
             return answer
         if self._fallback is None:
             raise WaitingForUser(question, schema)
-        answer = self._fallback.ask(question, schema=schema)
+        # context は None の時は渡さない（context を受け取らない既存の UserIO 実装との互換）
+        if context is None:
+            answer = self._fallback.ask(question, schema=schema)
+        else:
+            answer = self._fallback.ask(question, schema=schema, context=context)
         self._answers.append(answer)
         self._cursor += 1
         return answer
@@ -192,6 +202,7 @@ class ReferenceRuntime:
         strict_writes: bool = True,
         store_root: Path | None = None,
         max_file_chars: int = MAX_FILE_CHARS,
+        max_document_chars: int | None = None,
     ) -> None:
         self.workflow = workflow
         self.bindings = bindings
@@ -200,6 +211,9 @@ class ReferenceRuntime:
         self.threshold = threshold
         self.max_file_chars = (
             max_file_chars  # 状態文書の 1 ファイルあたりの切り詰め（adopting-gaps G-08）
+        )
+        self.max_document_chars = (
+            max_document_chars  # 状態文書全体の上限（ADR-014 14.5 (a)。None は無制限）
         )
         self.recorder = recorder
         self.strict_writes = strict_writes
@@ -272,12 +286,19 @@ class ReferenceRuntime:
             )
         if body is not None:
             before = fingerprint(self.workspace) if self.strict_writes else {}
+            outcomes = (
+                self.child_outcomes[stage_id][-1]
+                if stage.subworkflow is not None and self.child_outcomes[stage_id]
+                else ()
+            )
             ctx = RunContext(
                 stage,
                 self.workspace,
                 memory,
                 user=self._user_for(stage),
                 llm=self.llm,
+                entry=max(1, self.entry_counts[stage_id]),
+                child_outcomes=outcomes,
             )
             body.run(ctx)
             if self.strict_writes:
@@ -307,6 +328,7 @@ class ReferenceRuntime:
                 classifier=self.classifier,
                 threshold=self.threshold,
                 max_file_chars=self.max_file_chars,
+                max_document_chars=self.max_document_chars,
             )
         self.evaluations.append(self._record(stage, snapshot, verdict, document, classification))
         return verdict
@@ -489,6 +511,7 @@ class Runner:
         child: bool = False,
         inject: Mapping[tuple[str, str, int], Verdict] | None = None,
         max_file_chars: int = MAX_FILE_CHARS,
+        max_document_chars: int | None = None,
     ) -> None:
         self.workflow = workflow
         self._child = child  # 子 run: escalate は人間へ行かず ChildOutcome になる
@@ -505,6 +528,7 @@ class Runner:
             recorder=recorder,
             strict_writes=strict_writes,
             max_file_chars=max_file_chars,
+            max_document_chars=max_document_chars,
         )
         self.rt.inject = self.inject
         self.human = bindings.human

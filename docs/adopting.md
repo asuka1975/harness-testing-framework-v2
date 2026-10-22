@@ -109,9 +109,9 @@ class Draft:
 
 - 読めるのは `ctx.memory`（`memory_in` の鍵だけ）と作業ディレクトリ。書けるのは `writes` の範囲と `memory_out` の鍵だけ。範囲外は `ContractViolation`（参照ランタイムは本体の前後で作業ディレクトリを比較する。`.htf/` は対象外）
 - 本体は途中状態を持たない。中断からの再開は開始時スナップショットからの再実行で行われる
-- 再進入（ロールバックで戻ってきた）は carry の鍵が `ctx.memory` にあるかで分かる。初回は無い。人間の `Rerun` や carry 無しの `RollbackTo` による再実行は初回と区別できない（区別が要るなら成果物に痕跡を残す）
-- 分布の集計（第 6 節）の first / reentry は runtime の進入回数で決まる（その run でそのステージに 2 回目以降に入ったら reentry。carry の有無によらず、前のステージへのロールバックの後に通り直しただけでも reentry。中断からの再開は数えない）。`StageContext` に進入回数は無いので、確率的偽本体が first / reentry の分布を使い分けるには、本体の側で同じ規則で数える（toy-minimal の `StochasticSource`。進入のたびに必ず一度供給元を呼ぶ）
-- 状態文書は 1 ファイル 4000 文字で切られる（`Runner(max_file_chars=)` で変えられる）。大きな成果物は要旨（印、失敗の一覧、要約）を先頭に置き、詳細は別ファイルにする
+- 再進入は `ctx.entry`（この run での進入回数。1 始まり）と `ctx.reentry`（`entry > 1`）で分かる（ADR-014 14.2）。carry の鍵が `ctx.memory` にあるかでも分かるが、人間の `Rerun` や carry 無しの `RollbackTo` による再実行は carry では区別できず、`entry` では区別できる
+- 分布の集計（第 6 節）の first / reentry は runtime の進入回数で決まる（その run でそのステージに 2 回目以降に入ったら reentry。carry の有無によらず、前のステージへのロールバックの後に通り直しただけでも reentry。中断からの再開は数えない。子 run は run ごとに 1 から）。`ctx.entry` は同じ規則なので、確率的偽本体は first / reentry の分布を `ctx.reentry` で使い分けられる（toy-minimal の `StochasticSource` は本体の側で数えているが、同じ値になる）
+- 状態文書は 1 ファイル 4000 文字で切られる（`Runner(max_file_chars=)` で変えられる）。文書全体の上限は既定で無く、`Runner(max_document_chars=)` で付けられる（`reads` にコードベースのようなディレクトリを宣言するステージでは付ける。分類器が実 LLM なら文脈長に直撃する）。切り詰めは明示の印で示す。大きな成果物は要旨（印、失敗の一覧、要約）を先頭に置き、詳細は別ファイルにする（ADR-014 14.5）
 - 復元は戻り先の `writes` の範囲外に触れないので、再進入した本体から後段の成果物（前回の実行が残したもの）が見える。`reads` は検査されない。後段の成果物に依存する本体を書かない
 - `subworkflow` を持つステージの本体は任意。束縛すれば子 run が全て終わった後に走る。子の成果物（`workspace` 配下）をまとめて `memory_out` に出す（carry に使う）のは本体の役目。子 run の作業ディレクトリはステージに入るたびに空にされる
 - 作業ディレクトリ配下の `.htf/` は runner のメタデータ。本体が読み書きしても検出されず、結果は未定義
@@ -129,11 +129,13 @@ while result.status is RunStatus.SUSPENDED:
 
 テストでは `htf.testing.harness.DeferringUserIO`（常に中断）、`QueueUserIO`（回答列）、またはハーネス自身のシミュレータ（`examples/toy-minimal/user/`）を束縛する。
 
+質問の根拠（見送られた要件、失敗の一覧など）を構造で渡したい時は `ctx.user.ask(question, schema=..., context={...})`（ADR-014 14.4）。シミュレータや実 UI は `context` を表示や判断に使ってよいが、質問文は `context` 無しでも答えられる形にする。`context` は recorder に要求の一部として記録される。自作の `UserIO` は `context=None` の引数を受け取る（runtime は None の時は渡さないので、受け取らない実装も当面は動く）。
+
 ### 3.6 LLM クライアントと分類器
 
 - `LLMClient.complete(request)`。本体は `ctx.llm` 経由でしか呼ばない。recorder を付けると記録され、再生で LLM 無しに同じ実行が得られる
-- `Classifier.classify(document, options)`。`document` は reads ∪ writes ∪ memory_in からの投影、`options` は goal と end_state の記述（`id` は `goal` と各 end_state id。unknown を含む）。確信度が閾値未満なら unknown。閾値は `Runner(threshold=...)` で、既定の 0.5 は仮置き（較正で決める。ADR-012 12.23）。実 LLM の分類器は ADR-006 の後で用意する
-- 投影（状態文書）の形式: `# stage: <id>` / `## memory_in`（鍵ごとに JSON）/ `## reads` / `## writes`（パスごとに `### <path>` と内容。ディレクトリは配下の全ファイル。1 ファイル 4000 文字で切る）。`htf.runtime.project(stage, snapshot, workspace)` で同じ文書が得られる
+- `Classifier.classify(document, options)`。`document` は memory_in ∪ writes ∪ reads からの投影、`options` は goal と end_state の記述（`id` は `goal` と各 end_state id。unknown を含む）。確信度が閾値未満なら unknown。閾値は `Runner(threshold=...)` で、既定の 0.5 は仮置き（較正で決める。ADR-012 12.23）。実 LLM の分類器は ADR-006 の後で用意する
+- 投影（状態文書）の形式: `# stage: <id>` / `## memory_in`（鍵ごとに JSON）/ `## writes`（このステージの成果物。判定の根拠）/ `## reads`（前方の成果物。参照）の順（パスごとに `### <path>` と内容。ディレクトリは配下の全ファイル。1 ファイル 4000 文字で切る。文書全体の上限は `max_document_chars`）。`htf.runtime.project(stage, snapshot, workspace)` で同じ文書が得られる。印を読む偽の分類器（`MarkerClassifier`）は `## writes` 節だけを見る
 - htf のテストは LLM を呼ばない。偽ステージ本体が成果物に印（`"outcome": "<id>"` か行 `outcome: <id>`）を書き、`htf.testing.harness.MarkerClassifier` が状態文書の `## writes` 節からその印を読んで選択肢として返す。`low_confidence` の印は閾値未満（unknown の経路）、選択肢に無い印は unknown
 
 ### 3.7 束縛して実行する
@@ -205,7 +207,7 @@ subworkflow:
 
 - `pass` の鍵が親の memory に無い時（carry でしか来ない鍵の初回進入など）は、その鍵を子に渡さずに起動する（子の `memory_in` には無いものとして見える）。子の `inputs` は「親が供給しうる鍵」の宣言で、毎回あることの保証ではない
 - 子の escalate（unknown、max 超過）は人間へ行かず、子 run の終わり方として親の集約へ渡る
-- 子を持つステージの本体（子 run の後に走る）には子 run の終わり方（goal / stuck / unknown）は渡らない。本体は子の成果物の事実だけで判定する（分類の記述をコードに写さない）
+- 子を持つステージの本体（子 run の後に走る）は `ctx.child_outcomes` で子 run の終わり方（goal / stuck / unknown と、止まったステージと状態）を読める（ADR-014 14.3）。集約の判定は runtime が `aggregate` 規則で行うので、本体はこれを成果物の事実と併せて要旨（未完了のタスクなど）を書くのに使う。分類の記述をコードに写さない
 - 全ての子 run が goal なら親の goal 指標を評価して goal（親では分類器を呼ばない）。そうでなければ規則で end_state か unknown
 - 子のステージは `user_input` を宣言できない（整合性検査 `subworkflow_user_input` が落とす。v1.0 では未対応）。親子で `workflow.name` は重複しない（`subworkflow_ref`）
 

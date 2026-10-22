@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from types import MappingProxyType
 
-from htf.contract import ContractViolation, JsonValue, LLMClient, UserIO
+from htf.contract import ChildOutcome, ContractViolation, JsonValue, LLMClient, UserIO
 
 from .model import Stage
 
@@ -20,6 +20,8 @@ class RunContext:
         *,
         user: UserIO | None,
         llm: LLMClient | None,
+        entry: int = 1,
+        child_outcomes: Sequence[ChildOutcome] = (),
     ) -> None:
         self._stage = stage
         self._workspace = workspace
@@ -28,11 +30,25 @@ class RunContext:
         )
         self._user = user
         self._llm = llm
+        self._entry = max(1, entry)  # runtime の進入回数（ADR-014 14.2）
+        self._child_outcomes = tuple(child_outcomes)  # 子を持つステージだけ非空（14.3）
         self._emitted: dict[str, JsonValue] = {}
 
     @property
     def stage_id(self) -> str:
         return self._stage.id
+
+    @property
+    def entry(self) -> int:
+        return self._entry
+
+    @property
+    def reentry(self) -> bool:
+        return self._entry > 1
+
+    @property
+    def child_outcomes(self) -> Sequence[ChildOutcome]:
+        return self._child_outcomes
 
     @property
     def workspace(self) -> Path:

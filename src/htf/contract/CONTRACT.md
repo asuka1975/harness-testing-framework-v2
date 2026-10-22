@@ -61,6 +61,8 @@
 - `run(ctx)` は `ctx.workspace` に成果物を書き、`ctx.emit(key, value)` で memory を出す
 - 読めるのは `ctx.memory`（`memory_in` の鍵だけ）と作業ディレクトリ。書けるのは `writes` の範囲と `memory_out` の鍵だけ。範囲外は `ContractViolation`（参照ランタイムは終了時スナップショットを取る時に `writes` 外の変更を検出する）
 - `ctx.user` は `user_input: true` のステージでだけ使える。`ctx.llm` は recorder 経由で、記録があれば再生する。フレームワークのテストはこの再生だけで通る
+- `ctx.entry`（この run でのこのステージへの進入回数。1 始まり）と `ctx.reentry`（`entry > 1`）。runtime の進入回数と同じ規則: ロールバックで戻された再進入と人間の `Rerun` で増え、中断からの再開では増えない。子 run は run ごとに 1 から（ADR-014 14.2）
+- `ctx.child_outcomes`: `subworkflow` を持つステージの本体が、この進入で終わった子 run の終わり方（`ChildOutcome` の列。index 順）を読み取り専用で受け取る。子を持たないステージでは空。集約の判定は runtime が `aggregate` 規則で行い、本体は成果物の事実と併せて使う（ADR-014 14.3）
 - 本体は途中状態を持たない。中断（第 6 節）からの再開は、開始時スナップショットからの再実行で行う
 
 ### 5.2 指標（Metric / MetricRegistry、決定 #2）
@@ -71,7 +73,7 @@
 
 ### 5.3 ユーザー入出力（UserIO、決定 #4）
 
-- `ask(question, schema=None) -> JsonValue`。ステージ本体は同期的に呼ぶだけで、待ち方を知らない
+- `ask(question, *, schema=None, context=None) -> JsonValue`。ステージ本体は同期的に呼ぶだけで、待ち方を知らない。`context` は質問の根拠（見送られた要件、失敗の一覧など）を構造で渡す任意の JSON（ADR-014 14.4）。実装は無視してよいが、質問文は `context` 無しでも答えられる形にする。runtime の累積列は `context` が None の時は渡さない（受け取らない実装との互換）。recorder は `context` も要求の一部として記録する
 - その場で答えられない実装は `WaitingForUser` を投げる。runner はこれを捕まえて中断状態に入り、保留中の質問と開始時スナップショットを保存して終了する。回答が来たら、回答列に加えて開始時スナップショットから再実行する（回答は累積し、再実行で同じ質問に同じ回答を返す）
 - テストではシミュレータ（ペルソナ）を束縛する。recorder はユーザー回答も記録再生の対象にする
 
@@ -79,7 +81,8 @@
 
 - `LLMClient.complete(request)`。ステージ本体は `ctx.llm` 経由でしか呼ばない（recorder を通す）
 - `Classifier.classify(document, options)`。選択肢は goal の記述と end_state の記述をそのまま渡し、分類ロジックをコードに書かない。優先順は記述文中の「〜に優先する」で表す（決定 #7）
-- 状態文書は `reads ∪ writes ∪ memory_in` から投影する。スナップショット全体や作業ディレクトリ全体を渡さない
+- 状態文書は `memory_in` → `writes` → `reads` の順に投影する（`writes` はこのステージの成果物で判定の根拠、`reads` は前方の成果物で参照。ADR-014 14.5 (b)）。スナップショット全体や作業ディレクトリ全体を渡さない
+- 切り詰めは二段: 1 ファイルあたり（既定 4000 文字。`Runner(max_file_chars=)`）と、文書全体（既定は無制限。`Runner(max_document_chars=)`。ADR-014 14.5 (a)）。どちらも明示の印（`…（N 文字省略）` / `…（文書全体 N 文字省略）`）で示す。`reads` にディレクトリ（コードベースなど）を宣言するステージでは、配下の全ファイルが状態文書に入るので、文書全体の上限を使う
 
 ### 5.5 人間（HumanDecider、決定 #3）
 
@@ -105,9 +108,9 @@ runner が起こす遷移は次の 7 種（`TransitionKind`）。計画書 F2 �
 
 `subworkflow` を持つステージの `run` は次を行う。
 
-1. `each` の鍵（`memory_in`）の値はリスト。子 run を起動する前に `<workspace>` 配下を空にし（前回の進入の残骸を残さない。ADR-012 12.26）、要素 i ごとに子 run を一つ、作業ディレクトリ `<workspace><i>/` で起動する。子の memory の初期値は `{item_as: 要素, pass の各鍵: 親の値}` で、これが子の `workflow.inputs` と一致する（検査器が確かめる）
+1. `each` の鍵（`memory_in`）の値はリスト。子 run を起動する前に `<workspace>` 配下を空にし（前回の進入の残骸を残さない。ADR-012 12.26）、要素 i ごとに子 run を一つ、作業ディレクトリ `<workspace><i>/` で起動する。子の memory の初期値は `{item_as: 要素, pass の各鍵: 親の値}` で、これが子の `workflow.inputs` と一致する（検査器が確かめる）。`pass` の鍵が親の memory に無い時（carry でしか来ない鍵の初回進入）はその鍵を子に渡さずに起動する。子の `inputs` は「親が供給しうる鍵」の宣言であって、必ず供給される鍵ではない（ADR-014 14.1 / G-04）
 2. 子 run は独立した runner として子の定義を実行する。子のスナップショット store は子の作業ディレクトリ配下。子の中の escalate（unknown、max 超過）は人間へ行かず、その子 run の `ChildOutcome(stuck | unknown, stage, state)` になる。すべてのステージを `GOAL` で抜けた子 run は `ChildOutcome(goal)`
-3. 子 run がすべて終わったら、親のステージ本体（束縛されていれば）を実行する。子の成果物は `workspace` 配下にあり、親の `writes` に含まれる
+3. 子 run がすべて終わったら、親のステージ本体（束縛されていれば）を実行する。子の成果物は `workspace` 配下にあり、親の `writes` に含まれる。本体は `ctx.child_outcomes` で子 run の終わり方を読める（第 5.1 節）
 4. 親の `evaluate`: goal 指標 → すべての子 run が `goal` なら `GOAL`（goal 定性判定は子の中で済んでいるものとし、親では分類器を呼ばない）→ そうでなければ `aggregate` を上から順に評価し、最初に成立した規則の `state` に落ちる（`decided_by: aggregate`）→ どれも成立しなければ `UNKNOWN`（人間へ。`cause: child_unresolved`）
    - `any: {stage, state}`: 一つ以上の子 run がその (stage, state) で終わった。`all`: すべての子 run がその (stage, state) で終わった
    - 規則の `state` には `unknown` も書ける（明示の escalate）。成立すると親は `UNKNOWN`（人間へ、`cause: child_unresolved`）。子の unknown を人間に届けたい時は、unknown の規則を他の規則より上に置く（規則は上から順に評価するため、下に置くと先に成立した end_state の規則が勝ち、unknown は人間に届かない）。どの規則にも無い終わり方は親の `UNKNOWN`

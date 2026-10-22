@@ -4,9 +4,9 @@
 
 ## 次にやること
 
-**F4 の人間ゲートは「全て推奨で」で通過（ADR-014）。software factory を版 0.2 にした（120 passed、整合性検査 0 件）。次は契約への提案 14.1〜14.5 の実装、その後 F5。** htf は 143 passed。未 push のコミットあり（F4 取り込み以降。push は人間の指示で）。
+**F4 の人間ゲートは「全て推奨で」で通過（ADR-014）。software factory を版 0.2 にし（120 passed、整合性検査 0 件）、契約への提案 14.1〜14.5 を実装した（htf 153 passed）。次は F5（v1.0）。** 未 push のコミットあり（F4 取り込み以降。push は人間の指示で）。
 
-0. **契約への提案の実装（承認済み。順に、テストを先に別コミット）**: 14.1 CONTRACT 第 7 節 1 の文言（文書のみ）→ 14.2 `StageContext.entry` / `reentry` → 14.3 `StageContext.child_outcomes` → 14.4 `UserIO.ask(..., context=None)` → 14.5 (a) `Runner(max_document_chars=)` と (b) 投影の `## writes` を `## reads` より前に（CONTRACT 第 5.4 節と adopting.md 3.6 の改訂。`MarkerClassifier` と sf の `marker_truth` は writes 節だけを見るようにする）。toy-minimal で検証 → software factory で再検証。software factory の本体をこれらに追従させる（sf の progress.md の「次にやること」）
+0. **（済）契約への提案 14.1〜14.5 の実装**: 完了条件を先に別コミット（`tests/test_f4_contract_proposals.py`、10 failed）→ 実装（`StageContext.entry` / `reentry` / `child_outcomes`、`ask(..., context=)`、`Runner(max_document_chars=)`、投影の順序 memory_in → writes → reads、`MarkerClassifier` は writes 節だけ）→ CONTRACT 第 5.1 / 5.3 / 5.4 / 7 節と adopting.md 3.4 / 3.5 / 3.6 / 第 4 節を改訂 → software factory は `PersonaUserIO` の署名だけ追従して再検証。sf の本体で `ctx.entry` / `ctx.child_outcomes` を使う置き換えは任意（sf の progress.md）
 0'. **（済）F4 ゲートの決定と版 0.2**: 下の「完了したこと」
 
 1. **人間ゲート（F4）: 済（「全て推奨で」）**。記録として残す:
@@ -94,6 +94,7 @@
 - **F4 ゲートの決定「全て推奨で」を記録**（ADR-014 の決定欄と、版 0.2 の実装で確定する小決定 14.6.1〜14.6.11。adopting-gaps.md に処置の状況の表）
 - **software factory を版 0.2 に**（人間の承認を受けた定義の変更に本体を追従させるため、通常セッションが利用者の成果物を編集。理由は sf の progress.md に記録）: 完了条件を先に別コミット（`tests/test_sf_v02.py`、台本 26 本、E2E 計画 43 対象、既存テストの改訂。実装前 51 failed / 54 passed / 3 errors）→ 保護ファイル（`workflow.yaml`、`implement-task.yaml`、expectations）を計画エージェントが編集 → 本体（`Check` / `Integrate`、report と results の分離、approval の kind、manifest の base_version、ペルソナ `quality_lead`、指標 28）→ テストの修正を別コミット（aggregate の属性名、check / results.json に合わせた指標テスト、オラクルの許容幅、E2E の注入 4）→ 120 passed。sf の docs（plan.md、progress.md、台本 README）を版 0.2 に更新。adopting.md 3.1 に carry の閉包と `max` の run 全体性を追記
 - 誘発できないクラス 3 つ（integrate / merge_failed、verify / coverage_short、verify / lint_dirty）は注入で踏み、本体の論理は手作りの成果物で単体テスト（ADR-014 14.6.8）
+- **契約への提案 14.1〜14.5 を実装**（承認済み。完了条件 `tests/test_f4_contract_proposals.py` を先に別コミット、10 failed → 実装 → 10 passed）: `StageContext.entry` / `reentry` / `child_outcomes`、`UserIO.ask(..., context=None)`（累積列・recorder・テストダブル・toy と sf のペルソナ）、`Runner(max_document_chars=)` と投影の順序（memory_in → writes → reads。`MarkerClassifier` は writes 節だけを見る）、CONTRACT 第 7 節 1 の `pass` の文言。CONTRACT と adopting.md を改訂。ADR-014 の状態を「決定」に
 - **人間の指示で Codex（GPT-6-Astra、reasoning effort max）に定義 2 ファイルの独立レビュー**（第5.10節の宣言 `f4-sf-definition-review`。読取制限は隔離ディレクトリで構造的に課し、既存の 11 件は渡さない）。2 ターン（独立レビュー 31 分 + 前提の訂正 13 分）、書き込み 0。最後のメッセージを `reports/verification/f4-sf-definition-review/report.md` にそのまま写し、既存 11 件との突き合わせ（矛盾なし、重大度の引き上げ 5、新規 9）を `reports/dynamic/f4-sf-definition-review/record.md` に、採否の推奨の更新と契約への提案 14.5 を ADR-014 に書いた。定義は変えていない
 
 ### 未完了と理由
@@ -198,6 +199,7 @@ F1 時点: なし（まだワークフロー定義が存在しない）
 - 契約の不足（提案）: 進入回数（G-11）、子 run の終わり方を親の本体に（G-18）、`ask` の文脈（G-19）、`pass` の文言（G-04）
 - 文書の不足 13 件（adopting.md と雛形に反映）。構成: ruff がフィクスチャを見る（G-07）、ハーネスのテストが CI に無い（G-03）、ガードのテスト（G-15）
 - 投影（Codex の指摘 20）: 状態文書は 1 ファイルの切り詰めだけで総量の上限が無く、`reads: [codebase/]` のようにディレクトリを読むステージでは配下の全ファイルが判定結果（writes）より前に並ぶ。`reads` が本体の読取許可と分類器への投影の二役を兼ねる → 契約への提案 14.5（総量の上限 / writes を先に / 投影から外す印）。承認まで未実装
+- `MarkerClassifier`（14.5 (b) の実装で入れた退行。同日に修正）: writes 節を「次の `## ` で始まる行まで」で切ったため、成果物の Markdown（CHANGELOG.md の `## 追加` など）の見出しで節が途切れ、後ろの approval.json の印が読めず release が unknown になった（software factory 46 failed で検出）。節の切り出しはコードフェンスの中の `## ` 行を見出しと見なさない `writes_block()` にした。教訓: 状態文書の節の区切りは投影の形式（フェンス）を知った上で解析する。htf のテストは toy の成果物に Markdown の見出しが無いので見逃した → toy-minimal の成果物に見出し入りの Markdown を足すのは F5 で検討
 - 計画エージェントの誤り（過程）: 検証役への指示に「`reads` は分類器に渡らない」と書いた。正しくは `reads ∪ writes ∪ memory_in`（CONTRACT 第 5.4 節、adopting.md 3.6、スキーマ、`htf.runtime.project` のすべてが一致）。検証役が資料との不一致を指摘したので第 2 ターンで訂正し、観点 (b) の差分を取った。本体・契約・文書の修正は不要。再発防止: 検証役への前提は資料の節を指す形で書き、自分の要約を前提として書かない
 
 ### 実行した検証とその結果の要旨
@@ -453,6 +455,13 @@ $ uv run pytest -o addopts="" -q examples/software-factory/tests -m "not distrib
 $ uv run python -m htf.testing.spec examples/software-factory/workflow.yaml --metrics .../manifest.json  → 0 finding(s)（版 0.2）
 $ uv run pytest -o addopts="" -q examples/software-factory/tests          → 120 passed in 150.77s（分布・E2E を含む）
 $ uv run pytest -o addopts="" -q tests                                     → 143 passed in 67.33s（htf。本体は未変更）
+契約への提案 14.2〜14.5:
+$ uv run pytest -o addopts="" -q tests/test_f4_contract_proposals.py       → 10 failed（テスト先行、実装前）→ 実装後 10 passed
+$ uv run pytest -o addopts="" -q tests                                     → 153 passed in 68.48s
+$ uv run pytest -o addopts="" -q examples/software-factory/tests          → 46 failed, 71 passed, 3 errors（投影の順序変更で MarkerClassifier が
+    writes 節を Markdown の見出しで切っていた。下の「発見した問題」）→ 修正後 120 passed in 154.09s
+$ uv run pytest -o addopts="" -q tests                                     → 153 passed in 71.44s（修正後）
+$ uv run pytest -q --cov=htf.runtime --cov-fail-under=90                  → Required test coverage of 90% reached. Total coverage: 93.58%
 分布の実測（markov N = 200）: completed 0.83（マルコフ合成の予測 0.832）、check first goal 0.913 → reentry 1.0、unit_test first goal 0.755 → reentry 0.855、
   plan first design_incomplete 0.031。独立性 unit_test / tests_failing: markov p = 0.204（検出なし）、split p = 0.005（検出）。split の合成は外れる（差 0.445）
 ```
