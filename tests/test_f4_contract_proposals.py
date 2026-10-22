@@ -148,6 +148,29 @@ def test_14_3_child_unknown_reaches_the_parent_body_before_escalation(tmp_path: 
     assert fan == [(ChildOutcome(index=0, kind="unknown", stage="work", state="unknown"),)]
 
 
+def test_14_2_entry_counts_human_rerun_and_rollback_to(tmp_path: Path) -> None:
+    """人間の Rerun と carry 無しの RollbackTo でも進入回数は増える（検証役 f5-release の探針を退行テストに）。"""
+    from htf.contract import Rerun, RollbackTo
+
+    inject = {("pass_carry", "check", 1): Verdict(kind=VerdictKind.UNKNOWN, reason="注入")}
+    result, log = _pass_carry(tmp_path / "rerun", inject=inject, human=ScriptedHuman([Rerun()]))
+    assert result.status is RunStatus.COMPLETED
+    assert log.of("check") == [
+        (1, False),
+        (2, True),
+    ]  # Rerun: 同じ開始時スナップショットから 2 回目
+    assert dict(result.edge_counts) == {}  # 辺の max は消費しない
+
+    result, log = _pass_carry(
+        tmp_path / "rollback", inject=inject, human=ScriptedHuman([RollbackTo(stage="seed")])
+    )
+    assert result.status is RunStatus.COMPLETED
+    assert log.of("seed") == [(1, False), (2, True)]
+    assert log.of("fan") == [(1, False), (2, True)]
+    assert log.of("check") == [(1, False), (2, True)]
+    assert dict(result.edge_counts) == {}
+
+
 # --- 14.4: ask(..., context=) ---
 
 CONTEXT: dict[str, JsonValue] = {"reason": "見送られた要件 R4", "options": ["合意", "再検討"]}
@@ -208,6 +231,39 @@ def test_14_4_context_is_recorded_and_replayed(tmp_path: Path) -> None:
     assert user_entries and user_entries[0]["request"]["context"] == CONTEXT
     replayed = _ask_context(tmp_path / "rep", None, Recorder(log, mode="replay"))
     assert replayed.status is RunStatus.COMPLETED
+
+
+def test_14_4_replay_with_a_different_context_is_a_mismatch(tmp_path: Path) -> None:
+    """context は記録の要求の一部。違う context で再生すると ReplayMismatch（検証役 f5-release の探針）。"""
+    from htf.runtime import ReplayMismatch
+
+    log = tmp_path / "run.jsonl"
+    _ask_context(tmp_path / "rec", _ContextRecordingUser(), Recorder(log, mode="record"))
+
+    class _OtherContext(_AskWithContext):
+        def run(self, ctx: StageContext) -> None:
+            answer = ctx.user.ask(
+                "見送りに合意しますか?", schema={"type": "string"}, context={"reason": "別"}
+            )
+            (ctx.workspace / "answer.json").write_text(
+                json.dumps({"outcome": "goal", "answer": answer})
+            )
+
+    registry = DictMetricRegistry({"answer_exists": lambda s: (s.files / "answer.json").is_file()})
+    workflow = load_workflow(
+        FIXTURES / "workflows" / "ask_context.yaml", metric_names=registry.names()
+    )
+    bindings = Bindings(
+        bodies={("ask_context", "ask"): _OtherContext()},
+        registry=registry,
+        classifier=MarkerClassifier(),
+        user=None,
+        human=ScriptedHuman([]),
+    )
+    with pytest.raises(ReplayMismatch):
+        Runner(
+            workflow, bindings, workspace=tmp_path / "rep", recorder=Recorder(log, mode="replay")
+        ).run()
 
 
 def test_14_4_test_doubles_accept_context() -> None:
