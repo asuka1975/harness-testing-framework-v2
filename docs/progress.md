@@ -4,13 +4,16 @@
 
 ## 次にやること
 
-**F4 の利用者セッションの成果（software factory）を取り込み、adopting-gaps G-01〜G-23 の往復を一周した。F4 の人間ゲートで止まっている。** 143 passed（htf）、92 passed（software factory、変更なしで再検証）、整合性検査 0 件。未 push のコミットあり（F4 取り込み以降。push は人間の指示で）。
+**F4 の人間ゲートは「全て推奨で」で通過（ADR-014）。software factory を版 0.2 にした（120 passed、整合性検査 0 件）。次は契約への提案 14.1〜14.5 の実装、その後 F5。** htf は 143 passed。未 push のコミットあり（F4 取り込み以降。push は人間の指示で）。
 
-1. **人間ゲート（F4）**: 三つ
+0. **契約への提案の実装（承認済み。順に、テストを先に別コミット）**: 14.1 CONTRACT 第 7 節 1 の文言（文書のみ）→ 14.2 `StageContext.entry` / `reentry` → 14.3 `StageContext.child_outcomes` → 14.4 `UserIO.ask(..., context=None)` → 14.5 (a) `Runner(max_document_chars=)` と (b) 投影の `## writes` を `## reads` より前に（CONTRACT 第 5.4 節と adopting.md 3.6 の改訂。`MarkerClassifier` と sf の `marker_truth` は writes 節だけを見るようにする）。toy-minimal で検証 → software factory で再検証。software factory の本体をこれらに追従させる（sf の progress.md の「次にやること」）
+0'. **（済）F4 ゲートの決定と版 0.2**: 下の「完了したこと」
+
+1. **人間ゲート（F4）: 済（「全て推奨で」）**。記録として残す:
    - `examples/software-factory/workflow.yaml` と `implement-task.yaml` のレビュー（goal・end_state・unknown のクラス集合が MECE か、記述が成果物から観測可能か、各 end_state に戻り先があるか）。実ハーネスのレビューの予行演習。**Codex（GPT-6-Astra、effort max）の独立レビュー済み**（人間の指示）: 判定「直してから出す」。既存の 11 件と矛盾なし、重大度の引き上げ 5 件、新規 9 件。報告 `reports/verification/f4-sf-definition-review/report.md`、突き合わせ `reports/dynamic/f4-sf-definition-review/record.md`
    - 第三者レビューの指摘 11 件（`examples/software-factory/docs/plan.md` 第 1.1 節。高 1: 子 code の失敗が全て unknown → 確認ステージを足す提案。中 7、低 3）**と Codex の新規 9 件**の採否。推奨は ADR-014（Codex の突き合わせで更新: 既存 11 件は 採る 10 / 頻度を見てから 1、新規 9 件は 採る 5 / 見送る 1 / 頻度を見てから 2 / htf 側 1）。採る場合は分類体系の変更なので `workflow.version` を上げ、台本・E2E 計画・expectations を合わせる
    - `docs/decisions.md` ADR-014 の決定欄: 処置の一覧の承認、契約への提案 14.1〜14.5 の採否（14.5 は状態文書の総量の上限 / 順序 / 投影から外す印。Codex 20）
-2. **承認後（通常セッション）**: 採用された指摘を software factory の定義に反映（版 0.2）、台本・計画・expectations の更新、再検証。承認された契約の提案を実装（toy-minimal で検証 → software factory で再検証）。adopting-gaps.md の各項目に「処置済み（ADR-014）」の印を付ける
+2. **承認後（通常セッション）: 版 0.2 は済**。残りは 0. の契約の提案
 3. **F5**: v1.0（adopting.md の完成版（software factory を実例に）、harness-plan-template.md の完成版、CI のコスト段階（常時 / ナイトリー / 手動）、分類体系とハーネスの同期バージョン管理の方式、docs/maintenance.md）。完了条件: 二つの玩具で全ランナーが通る、adopting-gaps.md が全て処理済み、雛形に software factory を当てはめて矛盾が無い、CI に段階がある、v1.0 として公開（人間ゲート。決定 #6 もここ）
 4. **F5 の検証役**: F4 の往復で入れた本体の修正（G-04 / 05 / 06 / 08 / 16）は toy-minimal のテストで固定したが、第三者判定は F5 の検証役でまとめて行う
 
@@ -88,6 +91,9 @@
 - software factory は変更せずに再検証: 92 passed、整合性検査 0 件（本体の修正が利用者の成果物に影響しない）
 - 利用者セッションの読取制限を自分の目で確認（第7節「制限を破った時点で F4 の結果は無効」）: `examples/software-factory/` の import は `htf.contract`、`htf.contract.conformance`、`htf.runtime`、`htf.testing.{harness,oracle,spec,stages,triage}` の公開名だけ。`htf.runtime.runner` 等の内部モジュール、`src/htf`、htf の plan.md / decisions.md / progress.md、htf の `tests/` への参照は無い。探針の残骸（probe、log）も無い → **F4 の結果は有効**
 - ADR-014 に第三者レビュー 11 件への推奨（採る 8、頻度を見てから 3）を添えた
+- **F4 ゲートの決定「全て推奨で」を記録**（ADR-014 の決定欄と、版 0.2 の実装で確定する小決定 14.6.1〜14.6.11。adopting-gaps.md に処置の状況の表）
+- **software factory を版 0.2 に**（人間の承認を受けた定義の変更に本体を追従させるため、通常セッションが利用者の成果物を編集。理由は sf の progress.md に記録）: 完了条件を先に別コミット（`tests/test_sf_v02.py`、台本 26 本、E2E 計画 43 対象、既存テストの改訂。実装前 51 failed / 54 passed / 3 errors）→ 保護ファイル（`workflow.yaml`、`implement-task.yaml`、expectations）を計画エージェントが編集 → 本体（`Check` / `Integrate`、report と results の分離、approval の kind、manifest の base_version、ペルソナ `quality_lead`、指標 28）→ テストの修正を別コミット（aggregate の属性名、check / results.json に合わせた指標テスト、オラクルの許容幅、E2E の注入 4）→ 120 passed。sf の docs（plan.md、progress.md、台本 README）を版 0.2 に更新。adopting.md 3.1 に carry の閉包と `max` の run 全体性を追記
+- 誘発できないクラス 3 つ（integrate / merge_failed、verify / coverage_short、verify / lint_dirty）は注入で踏み、本体の論理は手作りの成果物で単体テスト（ADR-014 14.6.8）
 - **人間の指示で Codex（GPT-6-Astra、reasoning effort max）に定義 2 ファイルの独立レビュー**（第5.10節の宣言 `f4-sf-definition-review`。読取制限は隔離ディレクトリで構造的に課し、既存の 11 件は渡さない）。2 ターン（独立レビュー 31 分 + 前提の訂正 13 分）、書き込み 0。最後のメッセージを `reports/verification/f4-sf-definition-review/report.md` にそのまま写し、既存 11 件との突き合わせ（矛盾なし、重大度の引き上げ 5、新規 9）を `reports/dynamic/f4-sf-definition-review/record.md` に、採否の推奨の更新と契約への提案 14.5 を ADR-014 に書いた。定義は変えていない
 
 ### 未完了と理由
@@ -438,6 +444,17 @@ $ uv run pytest -o addopts="" -q                           → 143 passed in 65.
 $ uv run pytest -q --cov=htf.runtime --cov-fail-under=90  → Required test coverage of 90% reached. Total coverage: 93.20%
 $ uv run pytest -o addopts="" -q examples/software-factory/tests          → 92 passed in 104.64s（本体修正後、software factory は変更なし）
 $ 整合性検査: software-factory 0 finding(s)、toy-minimal 0 finding(s)
+```
+
+**版 0.2（F4 ゲート通過後）**:
+
+```text
+$ uv run pytest -o addopts="" -q examples/software-factory/tests -m "not distribution and not e2e"   → 51 failed, 54 passed, 3 errors（テスト先行、実装前）
+$ uv run python -m htf.testing.spec examples/software-factory/workflow.yaml --metrics .../manifest.json  → 0 finding(s)（版 0.2）
+$ uv run pytest -o addopts="" -q examples/software-factory/tests          → 120 passed in 150.77s（分布・E2E を含む）
+$ uv run pytest -o addopts="" -q tests                                     → 143 passed in 67.33s（htf。本体は未変更）
+分布の実測（markov N = 200）: completed 0.83（マルコフ合成の予測 0.832）、check first goal 0.913 → reentry 1.0、unit_test first goal 0.755 → reentry 0.855、
+  plan first design_incomplete 0.031。独立性 unit_test / tests_failing: markov p = 0.204（検出なし）、split p = 0.005（検出）。split の合成は外れる（差 0.445）
 ```
 
 **Codex の独立レビュー（`f4-sf-definition-review`、人間の指示）**: 第 1 ターン 17:36〜18:07（31 分）、入力 186,058 トークン（うちキャッシュ 153,984）、出力 30,383（うち推論 20,767）、コマンド 10（すべて隔離ディレクトリ内の読取。祖先ディレクトリの `AGENTS.md` 探索は空振り）、書き込み 0。第 2 ターン（前提の訂正）18:08〜18:22（13 分）、入力 259,519（キャッシュ 197,248）、出力 42,328、コマンド 0。判定「直してから出す」。指摘は 21 番まで（第 2 ターンで 11 を取り下げ、12・17 を改訂、20・21 を追加）。構造面は既存レビューと同じ結論（優先順位で解消されない重複なし、子の集約は網羅、11 辺の戻り先と carry は宣言と整合）。時間の合計 44 分は宣言の上限 40 分を超えた（第 2 ターンは計画エージェントの誤りの訂正。準正常として受け入れ。`record.md`）

@@ -4,10 +4,39 @@
 
 ## 次にやること
 
-- 第三者レビュー（plan.md 第 1.1 節）の指摘 11 件（高 1・中 7・低 3）を人間の承認に出す。最優先は子 code の失敗が全て unknown になる件（確認ステージを足す提案）
-- htf 側へ: `tests/test_repo_layout.py::test_software_factory_is_not_pre_created` が落ちる（G-15）。ガードの扱いを決めてもらう
-- htf 側へ: adopting-gaps.md の提案（G-04 の `pass`、G-06 のステージ id、G-11 の進入回数、G-18 の子の終わり方 など）
+- htf の契約の提案 14.2〜14.5（進入回数、子 run の終わり方、`ask` の文脈、状態文書の総量）が実装されたら、本体をそれに合わせる（`sources.py` の進入回数の数え直し、`Implement` の子の終わり方の読み取りを `child_outcomes` に、`Release` の質問の文脈）
+- 頻度を見てから決める項目（ADR-014: plan の scope_overlap、release の成果物不備、reads と writes の食い違い、稀な unknown）をトリアージで集める
 - 人手ラベル（plan.md 第 4 節）と実分類器の較正（第 5 節）は、LLM を入れる段で
+
+## 2026-10-22（htf の通常セッションによる版 0.2。理由: F4 の人間ゲートで ADR-014「全て推奨で」が決まり、定義の変更に本体を追従させる必要があった）
+
+### 完了したこと
+
+- 定義を版 0.2 に（htf の計画エージェントが保護ファイルを編集）: 子に `check`、親に `integrate`、plan の `design_incomplete`、verify の `coverage_short` / `lint_dirty`、release の `rejected_requirements` / `rejected_quality`、carry の閉包、記述の改訂。整合性検査 0 件
+- 完了条件を先に別コミット（`tests/test_sf_v02.py`、台本 26 本、E2E 計画 43 対象、既存テストの改訂。実装前: 51 failed, 54 passed, 3 errors）→ 本体の実装（`Check`、`Integrate`、要旨 report.json と全結果 results.json の分離、approval.json の kind、manifest の base_version、ペルソナ `quality_lead`、指標 28）→ 120 passed（分布・E2E を含む）
+- 第三者レビュー 11 件の採否と Codex（GPT-6-Astra）のレビューの採否は htf の ADR-014。plan.md 第 1.1 節に採否を追記
+- adopting-gaps.md に処置の状況（全項目処置済み。ADR-014）
+
+### 未完了と理由
+
+- `integrate / merge_failed`、`verify / coverage_short`、`verify / lint_dirty` はこのフィクスチャの世界では誘発できない（scope は重ならず、scope 外・lint・カバレッジ不足は子の check と unit_test が先に止める）。E2E では注入で踏み、本体の論理は `test_sf_v02.py` で手作りの成果物に対して確かめた（ADR-014 14.6.8）
+- 人手ラベルと実分類器の較正は前回と同じく未着手
+
+### 発見した問題
+
+#### ワークフロー定義
+
+- 種つきの `ConfusionClassifier` は文書の内容で乱数を決めるので、同じ変種の code / check の文書が台本をまたいで同一になるこのハーネスでは有効標本が一意な文書数（561 件中の一部）に縮む。オラクル検証の許容幅は一意な文書数から取るようにした（`test_sf_oracle.py`）。定義の問題ではないが、コーパスの作り方の注意として記録
+
+#### htf 本体
+
+- なし（14.2〜14.5 の実装待ち）
+
+### 実行した検証とその結果の要旨
+
+- `uv run python -m htf.testing.spec examples/software-factory/workflow.yaml --metrics examples/software-factory/metrics/manifest.json` → 0 finding(s)
+- `uv run pytest -o addopts="" -q examples/software-factory/tests` → 120 passed（約 150 秒。分布 markov N = 200 / split N = 150、E2E 43 対象 誘発 39・注入 4、マルコフ合成 markov は許容差内・split は外れる、独立性 markov 検出なし・split 検出）
+- 分布の実測は plan.md 第 6 節・第 8 節
 
 ## 2026-10-22
 
