@@ -7,9 +7,9 @@
 **F4 の利用者セッションの成果（software factory）を取り込み、adopting-gaps G-01〜G-23 の往復を一周した。F4 の人間ゲートで止まっている。** 143 passed（htf）、92 passed（software factory、変更なしで再検証）、整合性検査 0 件。未 push のコミットあり（F4 取り込み以降。push は人間の指示で）。
 
 1. **人間ゲート（F4）**: 三つ
-   - `examples/software-factory/workflow.yaml` と `implement-task.yaml` のレビュー（goal・end_state・unknown のクラス集合が MECE か、記述が成果物から観測可能か、各 end_state に戻り先があるか）。実ハーネスのレビューの予行演習
-   - 第三者レビューの指摘 11 件（`examples/software-factory/docs/plan.md` 第 1.1 節。高 1: 子 code の失敗が全て unknown → 確認ステージを足す提案。中 7、低 3）の採否。採る場合は分類体系の変更なので `workflow.version` を上げ、台本・E2E 計画・expectations を合わせる
-   - `docs/decisions.md` ADR-014 の決定欄: 処置の一覧の承認、契約への提案 14.1〜14.4 の採否
+   - `examples/software-factory/workflow.yaml` と `implement-task.yaml` のレビュー（goal・end_state・unknown のクラス集合が MECE か、記述が成果物から観測可能か、各 end_state に戻り先があるか）。実ハーネスのレビューの予行演習。**Codex（GPT-6-Astra、effort max）の独立レビュー済み**（人間の指示）: 判定「直してから出す」。既存の 11 件と矛盾なし、重大度の引き上げ 5 件、新規 9 件。報告 `reports/verification/f4-sf-definition-review/report.md`、突き合わせ `reports/dynamic/f4-sf-definition-review/record.md`
+   - 第三者レビューの指摘 11 件（`examples/software-factory/docs/plan.md` 第 1.1 節。高 1: 子 code の失敗が全て unknown → 確認ステージを足す提案。中 7、低 3）**と Codex の新規 9 件**の採否。推奨は ADR-014（Codex の突き合わせで更新: 既存 11 件は 採る 10 / 頻度を見てから 1、新規 9 件は 採る 5 / 見送る 1 / 頻度を見てから 2 / htf 側 1）。採る場合は分類体系の変更なので `workflow.version` を上げ、台本・E2E 計画・expectations を合わせる
+   - `docs/decisions.md` ADR-014 の決定欄: 処置の一覧の承認、契約への提案 14.1〜14.5 の採否（14.5 は状態文書の総量の上限 / 順序 / 投影から外す印。Codex 20）
 2. **承認後（通常セッション）**: 採用された指摘を software factory の定義に反映（版 0.2）、台本・計画・expectations の更新、再検証。承認された契約の提案を実装（toy-minimal で検証 → software factory で再検証）。adopting-gaps.md の各項目に「処置済み（ADR-014）」の印を付ける
 3. **F5**: v1.0（adopting.md の完成版（software factory を実例に）、harness-plan-template.md の完成版、CI のコスト段階（常時 / ナイトリー / 手動）、分類体系とハーネスの同期バージョン管理の方式、docs/maintenance.md）。完了条件: 二つの玩具で全ランナーが通る、adopting-gaps.md が全て処理済み、雛形に software factory を当てはめて矛盾が無い、CI に段階がある、v1.0 として公開（人間ゲート。決定 #6 もここ）
 4. **F5 の検証役**: F4 の往復で入れた本体の修正（G-04 / 05 / 06 / 08 / 16）は toy-minimal のテストで固定したが、第三者判定は F5 の検証役でまとめて行う
@@ -88,6 +88,7 @@
 - software factory は変更せずに再検証: 92 passed、整合性検査 0 件（本体の修正が利用者の成果物に影響しない）
 - 利用者セッションの読取制限を自分の目で確認（第7節「制限を破った時点で F4 の結果は無効」）: `examples/software-factory/` の import は `htf.contract`、`htf.contract.conformance`、`htf.runtime`、`htf.testing.{harness,oracle,spec,stages,triage}` の公開名だけ。`htf.runtime.runner` 等の内部モジュール、`src/htf`、htf の plan.md / decisions.md / progress.md、htf の `tests/` への参照は無い。探針の残骸（probe、log）も無い → **F4 の結果は有効**
 - ADR-014 に第三者レビュー 11 件への推奨（採る 8、頻度を見てから 3）を添えた
+- **人間の指示で Codex（GPT-6-Astra、reasoning effort max）に定義 2 ファイルの独立レビュー**（第5.10節の宣言 `f4-sf-definition-review`。読取制限は隔離ディレクトリで構造的に課し、既存の 11 件は渡さない）。2 ターン（独立レビュー 31 分 + 前提の訂正 13 分）、書き込み 0。最後のメッセージを `reports/verification/f4-sf-definition-review/report.md` にそのまま写し、既存 11 件との突き合わせ（矛盾なし、重大度の引き上げ 5、新規 9）を `reports/dynamic/f4-sf-definition-review/record.md` に、採否の推奨の更新と契約への提案 14.5 を ADR-014 に書いた。定義は変えていない
 
 ### 未完了と理由
 
@@ -125,8 +126,8 @@
 
 **F4**
 
-- 人間ゲート（workflow.yaml のレビュー、第三者レビュー 11 件の採否、ADR-014）: 人間の決定待ち
-- 契約への提案 14.1〜14.4: 承認まで未実装（G-11 / G-18 / G-19 は文書で暫定の指針）
+- 人間ゲート（workflow.yaml のレビュー、第三者レビュー 11 件 + Codex の新規 9 件の採否、ADR-014）: 人間の決定待ち
+- 契約への提案 14.1〜14.5: 承認まで未実装（G-11 / G-18 / G-19 は文書で暫定の指針。14.5 は Codex 20）
 - adopting-gaps.md への「処置済み」の印: 承認後に付ける（利用者の成果物を今は変えない）
 - push: F4 取り込み以降のコミットは未 push（人間の指示で）
 
@@ -134,7 +135,13 @@
 
 #### ワークフロー定義の問題
 
-なし（まだワークフロー定義が存在しない）
+F1 時点: なし（まだワークフロー定義が存在しない）
+
+**software factory（F4 ゲート。Codex の独立レビュー。定義は変えず、採否は ADR-014 で提案）**
+
+- 高 10 件のうち分類体系が変わるもの 8: 子 code の失敗が全て unknown（01）、verify の品質不成立（02）、plan の scope 重複・テスト無し（03）、design の割当て漏れ（04）、統合の失敗（05）、release の拒否理由（08）、design_gap の原因の混同（09）、release の成果物不備（10）。記述のみ 1: implement の本体指示と aggregate の食い違い（06）。carry の宣言の追加 1: 二段ロールバック（07）
+- 中 8 件・低 1 件は記述の補強が中心（12、13、15、16、17、18、19）。20 は htf 側（提案 14.5）、21 は頻度を見てから。軽微 2（intake の constraints の必須性、`max` が run 全体の上限であること）
+- 既存の 11 件（sf 計画書 第 1.1 節）との関係: すべてに対応する指摘があり矛盾なし。Codex は 5 件の重大度を引き上げた。突き合わせは `reports/dynamic/f4-sf-definition-review/record.md`
 
 #### フレームワーク本体の不足
 
@@ -184,6 +191,8 @@
 - ランナー: E2E 計画で台本の任意の欄を上書きできない（G-16 → `overrides`）
 - 契約の不足（提案）: 進入回数（G-11）、子 run の終わり方を親の本体に（G-18）、`ask` の文脈（G-19）、`pass` の文言（G-04）
 - 文書の不足 13 件（adopting.md と雛形に反映）。構成: ruff がフィクスチャを見る（G-07）、ハーネスのテストが CI に無い（G-03）、ガードのテスト（G-15）
+- 投影（Codex の指摘 20）: 状態文書は 1 ファイルの切り詰めだけで総量の上限が無く、`reads: [codebase/]` のようにディレクトリを読むステージでは配下の全ファイルが判定結果（writes）より前に並ぶ。`reads` が本体の読取許可と分類器への投影の二役を兼ねる → 契約への提案 14.5（総量の上限 / writes を先に / 投影から外す印）。承認まで未実装
+- 計画エージェントの誤り（過程）: 検証役への指示に「`reads` は分類器に渡らない」と書いた。正しくは `reads ∪ writes ∪ memory_in`（CONTRACT 第 5.4 節、adopting.md 3.6、スキーマ、`htf.runtime.project` のすべてが一致）。検証役が資料との不一致を指摘したので第 2 ターンで訂正し、観点 (b) の差分を取った。本体・契約・文書の修正は不要。再発防止: 検証役への前提は資料の節を指す形で書き、自分の要約を前提として書かない
 
 ### 実行した検証とその結果の要旨
 
@@ -430,6 +439,20 @@ $ uv run pytest -q --cov=htf.runtime --cov-fail-under=90  → Required test cove
 $ uv run pytest -o addopts="" -q examples/software-factory/tests          → 92 passed in 104.64s（本体修正後、software factory は変更なし）
 $ 整合性検査: software-factory 0 finding(s)、toy-minimal 0 finding(s)
 ```
+
+**Codex の独立レビュー（`f4-sf-definition-review`、人間の指示）**: 第 1 ターン 17:36〜18:07（31 分）、入力 186,058 トークン（うちキャッシュ 153,984）、出力 30,383（うち推論 20,767）、コマンド 10（すべて隔離ディレクトリ内の読取。祖先ディレクトリの `AGENTS.md` 探索は空振り）、書き込み 0。第 2 ターン（前提の訂正）18:08〜18:22（13 分）、入力 259,519（キャッシュ 197,248）、出力 42,328、コマンド 0。判定「直してから出す」。指摘は 21 番まで（第 2 ターンで 11 を取り下げ、12・17 を改訂、20・21 を追加）。構造面は既存レビューと同じ結論（優先順位で解消されない重複なし、子の集約は網羅、11 辺の戻り先と carry は宣言と整合）。時間の合計 44 分は宣言の上限 40 分を超えた（第 2 ターンは計画エージェントの誤りの訂正。準正常として受け入れ。`record.md`）
+
+### 動的ワークフローの宣言（第5.10節）: `f4-sf-definition-review`
+
+- **目的**: F4 人間ゲートの項目 1（`examples/software-factory/workflow.yaml` と `implement-task.yaml` の MECE・観測可能性・戻り先のレビュー）を、人間に出す前に実装を見ていない第三者に読ませる（第5.9節「workflow.yaml の MECE レビューは必ず検証役を通す」）。人間の指示: 「1. について Codex Astra 6 Max にレビューをもらってください」
+- **役割と人数**: 検証役 1（Claude のサブエージェントではなく外部 CLI: Codex CLI 0.162.1、モデル `gpt-6-astra`、reasoning effort `max`、サンドボックス read-only、非対話 `codex exec`）
+- **入力**: 読取制限は指示ではなく構造で課す。隔離ディレクトリに次だけを複製して作業ルートにする: `workflow.yaml`、`implement-task.yaml`、`metrics/manifest.json`、`docs/adopting.md`、`src/htf/contract/CONTRACT.md`、`schema/workflow.schema.json`、software factory の `docs/plan.md` 第 0〜1 節（**第 1.1 節の既存の第三者レビュー 11 件は除く**。独立性のため）。stages/ や metrics/ の実装、htf 本体、plan.md、decisions.md、progress.md は渡さない
+- **書いてよいパス**: 検証役は書かない（read-only）。最後のメッセージを計画エージェントが `reports/verification/f4-sf-definition-review/report.md` にそのまま写し、記録を `reports/dynamic/f4-sf-definition-review/record.md` に残す
+- **完了条件**: 報告に (1) 全体の判定、(2) 指摘の表（重大度・対象・観点・引用による根拠・失敗する場面・分類体系の変更か記述のみか・提案）、(3) ステージごとの所見（問題なしも明記）、(4) 判定できなかった事項、(5) 読んだファイルの一覧。受け入れ時にイベント記録から読取範囲を確かめる
+- **予算**: 1 ターン、時間 40 分、フレームワーク外の LLM 呼び出し 1 セッション（Codex）
+- **反復の上限**: 1（独立レビューの後、既存の 11 件との突き合わせを同じセッションの続きで 1 ターンだけ追加してよい。これは独立性を損なわない）。**入れ子の深さ**: 0
+- **受け入れ**: 報告を読み、既存の 11 件と突き合わせ（重複 / 新規 / 矛盾）て人間ゲートの材料にする。定義は変えない（指摘はすべて提案。ADR-014 の決定欄も触らない）
+- **実績（起動後に追記）**: 2 ターン。追加の 1 ターンは突き合わせではなく、計画エージェントの指示の前提の誤り（`reads` の投影）の訂正に使った。突き合わせは計画エージェントが `record.md` で実施。時間 44 分（上限 40 分を超過。準正常として受け入れ。理由は `record.md`）。読取範囲は両ターンとも隔離ディレクトリの中だけ。判定: 準正常
 
 ### 動的ワークフローの宣言（第5.10節）: `f3-test-runners`
 
