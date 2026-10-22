@@ -498,6 +498,17 @@ $ git status --short（受け入れ前）                                       
 
 **Codex の独立レビュー（`f4-sf-definition-review`、人間の指示）**: 第 1 ターン 17:36〜18:07（31 分）、入力 186,058 トークン（うちキャッシュ 153,984）、出力 30,383（うち推論 20,767）、コマンド 10（すべて隔離ディレクトリ内の読取。祖先ディレクトリの `AGENTS.md` 探索は空振り）、書き込み 0。第 2 ターン（前提の訂正）18:08〜18:22（13 分）、入力 259,519（キャッシュ 197,248）、出力 42,328、コマンド 0。判定「直してから出す」。指摘は 21 番まで（第 2 ターンで 11 を取り下げ、12・17 を改訂、20・21 を追加）。構造面は既存レビューと同じ結論（優先順位で解消されない重複なし、子の集約は網羅、11 辺の戻り先と carry は宣言と整合）。時間の合計 44 分は宣言の上限 40 分を超えた（第 2 ターンは計画エージェントの誤りの訂正。準正常として受け入れ。`record.md`）
 
+### 公開（v1.0。人間の承認後）
+
+```text
+$ git push origin main                       → a64da12..fc39924  main -> main（24 本）
+$ git tag -a v1.0.0 && git push origin v1.0.0 → [new tag] v1.0.0
+$ gh release create v1.0.0                   → https://github.com/asuka1975/harness-testing-framework-v2/releases/tag/v1.0.0
+GitHub Actions（push の run 39784356628）: 常時の段 ✓ 1m47s（ruff、htf の常時の段 + カバレッジ 90%、software factory の常時の段）。
+  ナイトリーと手動の job は起動条件どおりスキップ。手動の段の Actions 上の実走は未確認
+  （人間の許可時に `gh workflow run ci.yml -f tier=manual`）。ナイトリーは schedule で翌日 03:00 JST に初回
+```
+
 ### 動的ワークフローの宣言（第5.10節）: `f5-release`
 
 - **目的**: F5 の完了条件（二つの玩具で全ランナーが通る、adopting-gaps 全処置、雛形と software factory の計画書に矛盾が無い、CI の段階、v1.0 の公開準備）の第三者判定と、先送りしていた第三者判定の消化: F4 の本体修正 G-04 / 05 / 06 / 08 / 16（`tests/test_f4_gaps.py`）、契約の提案 14.2〜14.5（`tests/test_f4_contract_proposals.py`）、F5 の同期バージョン管理と CI の三段（`tests/test_f5_release.py`）。雛形を sf に当てはめた時の矛盾は、どちらも書いていない立場で読む
