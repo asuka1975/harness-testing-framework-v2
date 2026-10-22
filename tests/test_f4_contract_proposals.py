@@ -245,6 +245,21 @@ def test_14_5b_marker_classifier_reads_only_the_writes_block() -> None:
     assert MarkerClassifier().classify(document, options).option_id == "goal"
 
 
+def test_14_5b_marker_classifier_ignores_markdown_headers_inside_written_files() -> None:
+    """成果物の Markdown の見出し（`## 追加` など）で writes 節を切らない。
+
+    software factory の release（CHANGELOG.md が approval.json より前に並ぶ）で見つけた退行の再現。
+    """
+    document = (
+        "# stage: release\n## memory_in\n## writes\n### release/CHANGELOG.md\n```\n"
+        "# textkit 0.2.0\n\n## 追加\n\n- R1\n```\n"
+        '### release/approval.json\n```\n{"outcome": "goal"}\n```\n'
+        '## reads\n### requirements.json\n```\n{"outcome": "bad"}\n```\n'
+    )
+    options = [ClassOption("goal", "g"), ClassOption("bad", "b"), ClassOption("unknown", "u")]
+    assert MarkerClassifier().classify(document, options).option_id == "goal"
+
+
 def test_14_5a_whole_document_cap(toy: ModuleType, tmp_path: Path) -> None:
     workflow, result = _toy_run(toy, tmp_path)
     draft_end = next(s for s in result.end_snapshots if s.stage_id == "draft")

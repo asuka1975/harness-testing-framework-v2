@@ -50,7 +50,11 @@ def marker_truth(document: str, option_ids: list[str]) -> str:
     """
     import re
 
-    writes = document.split("## writes", 1)[-1]
+    from htf.testing.harness import writes_block
+
+    writes = writes_block(
+        document
+    )  # writes 節だけ（reads は writes の後ろに並ぶ。htf の ADR-014 14.5 (b)）
     found = re.search(r'"outcome": "([a-z_]+)"', writes)
     label = found.group(1) if found else "unknown"
     if label == "low_confidence":
