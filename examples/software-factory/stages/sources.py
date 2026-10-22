@@ -5,8 +5,8 @@
 - code: 当てる変更の変種（correct / failing / failing_edge / low_coverage / regression / missing_test / lint /
   broken / out_of_scope。unknown / low_confidence は correct を当てて印だけ変える）
 - design / plan / review: 成果物の変種（各ステージの end_state か goal。plan は two_tasks も goal の一種）
-- それ以外（intake / analyze / unit_test / verify / release）: 成果物から決まる結果が goal の時だけ使う上書き
-  （goal / unknown / low_confidence）
+- それ以外（intake / analyze / check / unit_test / integrate / verify / release）: 成果物から決まる結果が goal の
+  時だけ使う上書き（goal / unknown / low_confidence）
 
 本体は進入のたびに必ず一度 next を呼ぶ（成果物から結果が決まる時も呼び、値を捨てる）。供給元が数える進入回数を
 runtime の進入回数（first / reentry）と揃えるため。ユーザー入出力を使う本体は、質問の後で呼ぶ（中断した試行で
@@ -19,7 +19,7 @@ import random
 from collections import Counter
 from collections.abc import Mapping, Sequence
 
-CHILD_STAGES = frozenset({"code", "unit_test"})
+CHILD_STAGES = frozenset({"code", "check", "unit_test"})
 DEFAULTS = {"code": "correct"}  # 他のステージの既定は goal
 
 
@@ -44,7 +44,7 @@ class ScriptCursor:
 class Script:
     """親の台本と、子 run ごとの台本（子 run の開始順）。尽きた子 run は全て既定。
 
-    子 run の始まりは「carry（test_failures / coverage_gaps）の無い code の進入」（run_start）で判定する。
+    子 run の始まりは「carry（check_failures / test_failures / coverage_gaps）の無い code の進入」（run_start）で判定する。
     子 run には人間の解決（Rerun、carry 無しの RollbackTo）が届かないので、この判定は誤らない。
     """
 

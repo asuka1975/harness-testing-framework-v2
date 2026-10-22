@@ -2,17 +2,18 @@
 
 指標が見るのはスナップショットの files（そのステージ / フェーズの writes の範囲）と memory だけ。
 
-- code の指標（build_passed / lint_clean / changed_paths_in_scope）は、スナップショットの repo/ に対して
-  自分でバイトコンパイルと ruff を走らせ、fixtures の base との差分を取る。本体の報告（code.json）は使わない
-- unit_test / verify の指標は、本体が実際に走らせた pytest とカバレッジの正規化した出力（report.json の result）から
-  値を計算する。合否やカバレッジ率を本体が書いた値として読まない
+- code の指標（changed_paths_nonempty）は、スナップショットの repo/ と fixtures の base の差分を自分で取る
+- check の指標（build_passed / lint_clean / changed_paths_in_scope）は、本体が実ツールを走らせて check.json に記録した
+  正規化済みの出力（build のエラー、lint の違反、out_of_scope）から計算する。repo/ は code の writes なので check の
+  スナップショットには無い（版 0.2。htf の ADR-014 14.6.2）
+- unit_test / verify の指標は、本体が実際に走らせた pytest とカバレッジの正規化した出力（results.json）から値を
+  計算する。合否やカバレッジ率を本体が書いた要旨（report.json）の値として読まない
 - 値を返せない時（成果物が無い、対象が空）は例外を投げる。runtime はそれを unknown（評価不能）にする
 """
 
 from __future__ import annotations
 
 import json
-import tomllib
 from pathlib import Path
 
 from htf.contract import JsonValue, Snapshot
@@ -89,7 +90,11 @@ def task_scopes_disjoint(s: Snapshot) -> JsonValue:
     return True
 
 
-# --- build（親 implement と子 implement-task） ---
+def unassigned_requirement_count(s: Snapshot) -> JsonValue:
+    return len(_json(s, "tasks.json")["unassigned_requirements"])
+
+
+# --- build（親 implement / integrate と子 implement-task） ---
 
 
 def _dir(s: Snapshot, name: str) -> Path:
@@ -97,6 +102,14 @@ def _dir(s: Snapshot, name: str) -> Path:
     if not path.is_dir():
         raise FileNotFoundError(f"{name}/ がスナップショットに無い")
     return path
+
+
+def tasks_summary_complete(s: Snapshot) -> JsonValue:
+    summary = _json(s, "tasks/summary.json")
+    expected = [t["id"] for t in s.memory["tasks"]]
+    return [t["id"] for t in summary["tasks"]] == expected and all(
+        t.get("status") for t in summary["tasks"]
+    )
 
 
 def merged_build_passed(s: Snapshot) -> JsonValue:
@@ -108,25 +121,34 @@ def merged_paths_in_scope(s: Snapshot) -> JsonValue:
     return all(p in allowed for p in toolchain.changed_paths(_dir(s, "codebase")))
 
 
+def merge_conflict_count(s: Snapshot) -> JsonValue:
+    m = _json(s, "merge.json")
+    return len(m["conflicts"]) + len(m["failures"])
+
+
+def changed_paths_nonempty(s: Snapshot) -> JsonValue:
+    return bool(toolchain.changed_paths(_dir(s, "repo")))
+
+
 def build_passed(s: Snapshot) -> JsonValue:
-    return toolchain.build(_dir(s, "repo"))["passed"]
+    build = _json(s, "check.json")["build"]
+    return not build["errors"] and build["files"] > 0
 
 
 def lint_clean(s: Snapshot) -> JsonValue:
-    return toolchain.lint(_dir(s, "repo"))["passed"]
+    return not _json(s, "check.json")["lint"]["violations"]
 
 
 def changed_paths_in_scope(s: Snapshot) -> JsonValue:
-    scope = set(s.memory["task"]["scope"])
-    return all(p in scope for p in toolchain.changed_paths(_dir(s, "repo")))
+    return not _json(s, "check.json")["out_of_scope"]
 
 
 def unit_tests_passed(s: Snapshot) -> JsonValue:
-    return toolchain.tests_passed(_json(s, "unit/report.json")["result"])
+    return toolchain.tests_passed(_json(s, "unit/results.json")["result"])
 
 
 def unit_coverage(s: Snapshot) -> JsonValue:
-    result = _json(s, "unit/report.json")["result"]
+    result = _json(s, "unit/results.json")["result"]
     paths = [p for p in s.memory["task"]["scope"] if p.startswith("src/")]
     return round(toolchain.line_coverage(result["coverage"], paths), 4)
 
@@ -135,25 +157,26 @@ def unit_coverage(s: Snapshot) -> JsonValue:
 
 
 def suite_passed(s: Snapshot) -> JsonValue:
-    return toolchain.tests_passed(_json(s, "verification/report.json")["result"])
+    return toolchain.tests_passed(_json(s, "verification/results.json")["result"])
 
 
 def suite_coverage(s: Snapshot) -> JsonValue:
-    result = _json(s, "verification/report.json")["result"]
+    result = _json(s, "verification/results.json")["result"]
     return round(toolchain.line_coverage(result["coverage"]), 4)
 
 
 def suite_lint_clean(s: Snapshot) -> JsonValue:
-    return not _json(s, "verification/report.json")["lint"]["violations"]
+    return not _json(s, "verification/results.json")["lint"]["violations"]
 
 
 def criteria_verified_ratio(s: Snapshot) -> JsonValue:
-    report = _json(s, "verification/report.json")
-    if not report["criteria"]:
+    criteria = _json(s, "verification/report.json")["criteria"]
+    if not criteria:
         raise ValueError("受け入れ基準が無い")
-    statuses = {t["nodeid"]: t["status"] for t in report["result"]["tests"]}
-    passed = sum(1 for c in report["criteria"] if statuses.get(c["test"]) == "passed")
-    return round(passed / len(report["criteria"]), 4)
+    tests = _json(s, "verification/results.json")["result"]["tests"]
+    statuses = {t["nodeid"]: t["status"] for t in tests}
+    passed = sum(1 for c in criteria if statuses.get(c["test"]) == "passed")
+    return round(passed / len(criteria), 4)
 
 
 def blocking_comment_count(s: Snapshot) -> JsonValue:
@@ -167,16 +190,11 @@ def _version(text: str) -> tuple[int, ...]:
     return tuple(int(x) for x in text.split("."))
 
 
-def base_version() -> str:
-    return tomllib.loads((toolchain.BASE / "pyproject.toml").read_text(encoding="utf-8"))[
-        "project"
-    ]["version"]
-
-
 def release_manifest_valid(s: Snapshot) -> JsonValue:
     m = _json(s, "release/manifest.json")
     return (
-        _version(m["version"]) > _version(base_version())
+        m.get("base_version") == toolchain.base_version()
+        and _version(m["version"]) > _version(m["base_version"])
         and bool(m["files"])
         and toolchain.manifest_digest(m["files"]) == m["digest"]
     )
@@ -204,8 +222,12 @@ def registry() -> DictMetricRegistry:
             "task_count": task_count,
             "tasks_cover_design": tasks_cover_design,
             "task_scopes_disjoint": task_scopes_disjoint,
+            "unassigned_requirement_count": unassigned_requirement_count,
+            "tasks_summary_complete": tasks_summary_complete,
             "merged_build_passed": merged_build_passed,
             "merged_paths_in_scope": merged_paths_in_scope,
+            "merge_conflict_count": merge_conflict_count,
+            "changed_paths_nonempty": changed_paths_nonempty,
             "build_passed": build_passed,
             "lint_clean": lint_clean,
             "changed_paths_in_scope": changed_paths_in_scope,

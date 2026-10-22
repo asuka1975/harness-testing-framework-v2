@@ -4,6 +4,7 @@ roles:                       # intake の「役割」の回答 → 要件の組�
   ドメイン専門家: domain_expert
   エンドユーザー: end_user
   事業責任者: product_owner
+  品質管理者: product_owner
 requirements:
   R1:
     title: 文字列から URL 用の slug を作る

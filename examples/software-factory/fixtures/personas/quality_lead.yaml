@@ -1,0 +1,12 @@
+# ペルソナ: 品質管理者。要求は過不足なく答えるが、最初のリリースは品質（docstring と端の場合の扱い）を理由に承認しない。
+# 指摘が反映された二度目のリリースを承認する（release: reject_quality_once）
+id: quality_lead
+answers:
+  role: 品質管理者
+  summary: 社内ツールで使う小さなテキスト処理ライブラリ textkit に機能を三つ足したい
+  features: [URL 用の slug を作る, 語の数を数える, 幅に合わせて切り詰める（末尾は ...）]
+  constraints: [標準ライブラリだけで実装する]
+  acceptance: 機能ごとの単体テストが通り、公開関数に docstring があること
+clarifications: {}
+release: reject_quality_once
+rejection_reason: slugify の docstring に前後の - を除く例が無く、空文字の扱いも書かれていない。直してから出してほしい

@@ -1,6 +1,6 @@
 """実ツール（ビルド・テスト・カバレッジ・lint）と、フィクスチャのコードベースへの変更の適用。
 
-本体（code / unit_test / implement / verify）と指標の両方が使う。
+本体（code / check / unit_test / integrate / verify / release）と指標の両方が使う。
 
 - 作業ディレクトリには成果物以外を書かない。バイトコード、pytest のキャッシュ、カバレッジのデータ、ruff の
   キャッシュはすべて作業ディレクトリ外の一時ディレクトリへ逃がす（参照ランタイムは writes 外の変更を検出する）
@@ -306,6 +306,30 @@ def _env(tmp: Path, repo: Path) -> dict[str, str]:
         PYTEST_DISABLE_PLUGIN_AUTOLOAD="1",
     )
     return env
+
+
+def check(repo: Path, scope: Sequence[str]) -> dict:
+    """子の check が書く正規化した記録: ビルド、lint、base から変わったパスと task.scope の照合。
+
+    指標（build_passed / lint_clean / changed_paths_in_scope）はこの記録（check.json）から計算する。
+    """
+    changed = changed_paths(repo)
+    return {
+        "build": build(repo),
+        "lint": lint(repo),
+        "changed_paths": changed,
+        "out_of_scope": [p for p in changed if p not in scope],
+        "scope": list(scope),
+    }
+
+
+def base_version() -> str:
+    """fixtures の base の版（release の manifest の base_version と、指標の照合に使う）。"""
+    import tomllib
+
+    return tomllib.loads((BASE / "pyproject.toml").read_text(encoding="utf-8"))["project"][
+        "version"
+    ]
 
 
 # --- 正規化した結果からの集計（本体の印と指標が同じ計算を使う） ---

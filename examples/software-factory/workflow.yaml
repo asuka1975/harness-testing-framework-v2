@@ -1,23 +1,25 @@
 # software-factory: 要求の取り込みからリリースまでのソフトウェア開発ワークフロー（htf の実例ハーネス）
 #
-# 5 フェーズ 8 ステージ + 子ワークフロー 1 つ（implement-task.yaml。タスクごとに起動）。
+# 版 0.2（htf の ADR-014。第三者レビューと Codex のレビューの採用分を反映）
+# 5 フェーズ 9 ステージ + 子ワークフロー 1 つ（implement-task.yaml。タスクごとに起動）。
 #   discovery: intake（ユーザー待ち）→ analyze
-#   design:    design → plan（タスク分割）
-#   build:     implement（子 implement-task: code → unit_test。子 run の後に本体が変更を統合する）
+#   design:    design → plan（タスク分割。設計の割当て漏れも検出する）
+#   build:     implement（子 implement-task: code → check → unit_test）→ integrate（統合）
 #   assure:    verify → review
 #   release:   release（ユーザー待ち）
 # 遷移の形:
-#   フェーズ内ロールバック: analyze → intake、plan → design、（子）unit_test → code
-#   フェーズ境界を越えるロールバック: design → analyze、implement → plan、verify → plan、review → plan、
-#     review → design、release → analyze
-#   carry: すべてのロールバック辺
+#   フェーズ内ロールバック: analyze → intake、plan → design、（子）check → code、unit_test → code
+#   フェーズ境界を越えるロールバック: design → analyze、implement → plan、integrate → plan、verify → plan、
+#     review → plan、review → design、release → analyze、release → plan
+#   carry: すべてのロールバック辺。二段以上続けて戻っても鍵が消えないよう、各辺は「戻り先より後ろのステージへ
+#     運ばれうる鍵」もまとめて運ぶ（閉包。ADR-014 14.6.7。通過用の鍵は戻り先の memory_in と元の memory_out に並ぶ）
 #   ユーザー待ち: intake（要求の聞き取りと、analyze から carry された質問）、release（リリースの承認）
 #   子の集約: implement
 # 指標の実装は metrics/、名前は metrics/manifest.json。成果物の形は docs/plan.md 第 1 節。
 workflow:
   name: software-factory
-  description: 依頼者から要求を聞き取り、要件・設計・タスクに落とし、実装・検証・レビューを経てリリースする
-  version: "0.1"
+  description: 依頼者から要求を聞き取り、要件・設計・タスクに落とし、実装・統合・検証・レビューを経てリリースする
+  version: "0.2"
   phases:
     - id: discovery
       name: Discovery
@@ -36,16 +38,32 @@ workflow:
           name: Intake
           description: >-
             依頼者に決まった順で質問し（役割、要約、欲しい機能、制約、受け入れの確かめ方）、回答を
-            intake/answers.json に、読みやすい形を intake/request.md に書く。analyze から open_questions を
-            carry された再進入では、その質問も続けて尋ね、回答を intake/answers.json の clarifications に書く
+            intake/answers.json に、読みやすい形を intake/request.md に書く。制約は任意（空でよい）。役割・要約・機能・
+            受け入れの確かめ方は必須で、空の回答は受理せず聞き直す。その場で答えが無い質問は中断して待つ（空の回答や
+            仮の回答で終えない）。analyze から open_questions を carry された再進入では、その質問も続けて尋ね、回答を
+            intake/answers.json の clarifications に書く。memory_in の他の鍵は後段のステージへの通過用で、intake は読まない
           user_input: true
           artifacts:
             writes: [intake/]
-            memory_in: [open_questions]
+            memory_in:
+              - open_questions
+              # 通過用（analyze → intake の閉包。ADR-014 14.6.7）
+              - conflicts
+              - rejection_feedback
+              - design_issues
+              - uncovered_components
+              - unassigned_requirements
+              - unfinished_tasks
+              - merge_failures
+              - regressions
+              - unmet_criteria
+              - suite_coverage_gaps
+              - suite_lint_violations
+              - review_comments
           goal:
             qualitative: >-
               intake/answers.json に、依頼者の役割、要約、欲しい機能の一覧、受け入れの確かめ方が空でなく記録され、
-              carry された質問があれば、そのすべてに clarifications で回答が記録されている。
+              carry された質問があれば、そのすべてに clarifications で回答が記録されている。制約（constraints）は空でもよい。
             quantitative:
               intake_complete:
                 description: >-
@@ -60,16 +78,45 @@ workflow:
           description: >-
             intake/answers.json から要件（id、題目、受け入れ基準とそれを確かめるテストの nodeid）を
             requirements.json に書く。依頼者に確かめないと決められない点は open_questions に書いて memory に出す。
-            carry された conflicts は要件の見送りとして、rejection_feedback は見送りへの合意として反映する
+            carry された conflicts は、依頼者の組の規則に従って片方を見送るか、両立すると記録する。carry された
+            rejection_feedback（kind が requirements）は見送りへの合意として反映する。memory_in の他の鍵は後段への通過用
           artifacts:
             reads: [intake/]
             writes: [requirements.json]
-            memory_in: [conflicts, rejection_feedback]
-            memory_out: [open_questions]
+            memory_in:
+              - conflicts
+              - rejection_feedback
+              # 通過用（design → analyze、release → analyze の閉包）
+              - design_issues
+              - uncovered_components
+              - unassigned_requirements
+              - unfinished_tasks
+              - merge_failures
+              - regressions
+              - unmet_criteria
+              - suite_coverage_gaps
+              - suite_lint_violations
+              - review_comments
+            memory_out:
+              - open_questions
+              # 通過用（analyze → intake の carry に並べるため）
+              - conflicts
+              - rejection_feedback
+              - design_issues
+              - uncovered_components
+              - unassigned_requirements
+              - unfinished_tasks
+              - merge_failures
+              - regressions
+              - unmet_criteria
+              - suite_coverage_gaps
+              - suite_lint_violations
+              - review_comments
           goal:
             qualitative: >-
-              requirements.json の見送りでない要件がそれぞれ一つ以上の受け入れ基準を持ち、各基準に確かめるテストの
-              nodeid があり、open_questions が空である。
+              requirements.json に見送りでない要件が一つ以上あり、それぞれが一つ以上の受け入れ基準を持ち、各基準に
+              確かめるテストの nodeid があり、open_questions が空である。intake/answers.json の欲しい機能がすべて、
+              いずれかの要件（見送りを含む）に対応している。
             quantitative:
               active_requirement_count:
                 description: requirements.json の見送りでない要件の数
@@ -90,34 +137,76 @@ workflow:
           rollback:
             - state: ambiguous
               stage: intake
-              carry: [open_questions]
+              carry:
+                - open_questions
+                - conflicts
+                - rejection_feedback
+                - design_issues
+                - uncovered_components
+                - unassigned_requirements
+                - unfinished_tasks
+                - merge_failures
+                - regressions
+                - unmet_criteria
+                - suite_coverage_gaps
+                - suite_lint_violations
+                - review_comments
               max: 2
     - id: design
       name: Design
-      description: 要件をコンポーネントに割り当て、実装タスクに分割する
+      description: 見送りでない要件をコンポーネントに割り当て、実装タスクに分割する
       goal:
-        qualitative: 全ての要件がコンポーネントに割り当てられ、全てのコンポーネントがタスクで覆われている
+        qualitative: 見送りでない全ての要件がコンポーネントに割り当てられ、全てのコンポーネントがタスクで覆われている
         quantitative:
           tasks_cover_design:
             description: tasks.json の design_components がすべて、いずれかのタスクの components にある
             equals: true
+          unassigned_requirement_count:
+            description: tasks.json の unassigned_requirements の数
+            max: 0
       stages:
         - id: design
           name: Design
           description: >-
             requirements.json の見送りでない要件をコンポーネント（id、モジュールのパス、満たす要件の id）に割り当てて
-            design.json に書く。同時には満たせない要件の組を見つけたら、design.json の conflicts に理由とともに書いて
-            memory に出す。carry された design_issues / uncovered_components は、反映した内容を design.json の
-            revisions に記録する
+            design.json に書く。design.json の requirements には見送りでない要件の id をすべて写す。同時には満たせない
+            要件の組を見つけたら、design.json の conflicts に理由とともに書いて memory に出す。carry された
+            design_issues / uncovered_components / unassigned_requirements は、反映した内容を design.json の
+            revisions に記録する。memory_in の他の鍵は後段への通過用
           artifacts:
             reads: [requirements.json]
             writes: [design.json]
-            memory_in: [design_issues, uncovered_components]
-            memory_out: [conflicts]
+            memory_in:
+              - design_issues
+              - uncovered_components
+              - unassigned_requirements
+              # 通過用（plan → design、review → design の閉包）
+              - unfinished_tasks
+              - merge_failures
+              - regressions
+              - unmet_criteria
+              - suite_coverage_gaps
+              - suite_lint_violations
+              - review_comments
+              - rejection_feedback
+            memory_out:
+              - conflicts
+              # 通過用（design → analyze の carry に並べるため）
+              - design_issues
+              - uncovered_components
+              - unassigned_requirements
+              - unfinished_tasks
+              - merge_failures
+              - regressions
+              - unmet_criteria
+              - suite_coverage_gaps
+              - suite_lint_violations
+              - review_comments
+              - rejection_feedback
           goal:
             qualitative: >-
-              design.json の components が、design.json の requirements に挙げた見送りでない全ての要件を
-              少なくとも一度ずつ満たし、conflicts が空である。
+              requirements.json の見送りでない要件の id の集合が design.json の requirements と一致し、その全てを
+              design.json の components が少なくとも一度ずつ満たし、conflicts が空である。
             quantitative:
               design_covers_requirements:
                 description: design.json の requirements の id がすべて、いずれかのコンポーネントの satisfies にある
@@ -135,23 +224,63 @@ workflow:
           rollback:
             - state: requirements_conflict
               stage: analyze
-              carry: [conflicts]
+              carry:
+                - conflicts
+                - design_issues
+                - uncovered_components
+                - unassigned_requirements
+                - unfinished_tasks
+                - merge_failures
+                - regressions
+                - unmet_criteria
+                - suite_coverage_gaps
+                - suite_lint_violations
+                - review_comments
+                - rejection_feedback
               max: 1
         - id: plan
           name: Plan
           description: >-
             design.json のコンポーネントを実装タスク（id、題目、機能、コンポーネント、変更してよいパス scope、
-            走らせるテストファイル tests）に分割して tasks.json に書き、tasks を memory に出す。carry された
-            unfinished_tasks / regressions / unmet_criteria / review_comments は、該当するタスクの notes に書く
+            走らせるテストファイル tests）に分割して tasks.json に書き、tasks を memory に出す。tasks.json には
+            design.json のコンポーネント id（design_components）、requirements.json の見送りでない要件の id
+            （requirement_ids）、design.json のコンポーネントが満たす要件の id（assigned_requirement_ids）も写し、
+            どのコンポーネントにも満たされない要件を unassigned_requirements に、どのタスクにも割り当てなかった
+            コンポーネントを uncovered_components に書く。タスクの id は再計画でも維持し、タスクを分割・統合した時は
+            旧 id を notes に書く。carry された unfinished_tasks / merge_failures / regressions / unmet_criteria /
+            suite_coverage_gaps / suite_lint_violations / review_comments / rejection_feedback（kind が quality）は、
+            該当するタスクの notes に書く
           artifacts:
             reads: [design.json, requirements.json]
             writes: [tasks.json]
-            memory_in: [unfinished_tasks, regressions, unmet_criteria, review_comments]
-            memory_out: [tasks, uncovered_components]
+            memory_in:
+              - unfinished_tasks
+              - merge_failures
+              - regressions
+              - unmet_criteria
+              - suite_coverage_gaps
+              - suite_lint_violations
+              - review_comments
+              - rejection_feedback
+            memory_out:
+              - tasks
+              - uncovered_components
+              - unassigned_requirements
+              # 通過用（plan → design の carry に並べるため）
+              - unfinished_tasks
+              - merge_failures
+              - regressions
+              - unmet_criteria
+              - suite_coverage_gaps
+              - suite_lint_violations
+              - review_comments
+              - rejection_feedback
           goal:
             qualitative: >-
+              requirements.json の見送りでない要件がすべて design.json のいずれかのコンポーネントに満たされ、
               tasks.json のタスクが design.json の全てのコンポーネントを覆い、タスク同士の scope が重ならず、
-              各タスクに一つ以上のテストファイルがある。
+              各タスクに一つ以上のテストファイルがあり、carry された差し戻しがあれば該当するタスクの notes に
+              書かれている。
             quantitative:
               task_count:
                 description: tasks.json のタスクの数
@@ -159,10 +288,17 @@ workflow:
               tasks_cover_design:
                 description: tasks.json の design_components がすべて、いずれかのタスクの components にある
                 equals: true
+              unassigned_requirement_count:
+                description: tasks.json の unassigned_requirements の数
+                max: 0
               task_scopes_disjoint:
                 description: 二つ以上のタスクの scope に入っているパスが無い
                 equals: true
           end_state:
+            - id: design_incomplete
+              description: >-
+                tasks.json の unassigned_requirements に、requirements.json の見送りでない要件のうち design.json の
+                どのコンポーネントにも満たされないものの id が一つ以上ある。この状態は design_gap に優先する。
             - id: design_gap
               description: >-
                 tasks.json の uncovered_components に、どのタスクにも割り当てられていない design.json の
@@ -170,9 +306,31 @@ workflow:
             - id: unknown
               description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
           rollback:
+            - state: design_incomplete
+              stage: design
+              carry:
+                - unassigned_requirements
+                - unfinished_tasks
+                - merge_failures
+                - regressions
+                - unmet_criteria
+                - suite_coverage_gaps
+                - suite_lint_violations
+                - review_comments
+                - rejection_feedback
+              max: 1
             - state: design_gap
               stage: design
-              carry: [uncovered_components]
+              carry:
+                - uncovered_components
+                - unfinished_tasks
+                - merge_failures
+                - regressions
+                - unmet_criteria
+                - suite_coverage_gaps
+                - suite_lint_violations
+                - review_comments
+                - rejection_feedback
               max: 1
     - id: build
       name: Build
@@ -187,12 +345,13 @@ workflow:
         - id: implement
           name: Implement
           description: >-
-            tasks の各タスクについて子ワークフロー implement-task.yaml を起動し、tasks/<i>/ で実装と単体テストを
-            させる。子 run が終わったら本体が、単体テストを通ったタスクの変更を fixtures のコードベースに統合して
-            codebase/ に置き、統合の記録を merge.json に、単体テストを通らなかったタスクを unfinished_tasks に書く
+            tasks の各タスクについて子ワークフロー implement-task.yaml を起動し、tasks/<i>/ で実装・検査・単体テストを
+            させる。子 run が終わったら本体が、各タスクの終わり方（check.json と unit/report.json の事実）を
+            tasks/summary.json に書き、check か unit_test で止まったタスク（ビルド失敗、scope 外、lint 違反、テストの
+            失敗、カバレッジ不足）を unfinished_tasks に書く。統合は次の integrate が行う
           artifacts:
             reads: [tasks.json]
-            writes: [tasks/, codebase/, merge.json]
+            writes: [tasks/]
             memory_in: [tasks]
             memory_out: [unfinished_tasks]
           subworkflow:
@@ -207,7 +366,19 @@ workflow:
                   any: { stage: code, state: unknown }
               - state: unknown
                 when:
+                  any: { stage: check, state: unknown }
+              - state: unknown
+                when:
                   any: { stage: unit_test, state: unknown }
+              - state: tasks_unfinished
+                when:
+                  any: { stage: check, state: build_failed }
+              - state: tasks_unfinished
+                when:
+                  any: { stage: check, state: out_of_scope }
+              - state: tasks_unfinished
+                when:
+                  any: { stage: check, state: lint_failed }
               - state: tasks_unfinished
                 when:
                   any: { stage: unit_test, state: tests_failing }
@@ -218,8 +389,40 @@ workflow:
           # 置き換わる。CONTRACT 第 4 節・第 7 節 4）。下の記述は文書上の説明
           goal:
             qualitative: >-
-              全てのタスクの単体テストが通り、codebase/ がそれらの変更を統合した形でビルドでき、
-              base から変わったパスがすべていずれかのタスクの scope にある。
+              全てのタスクが check と単体テストを通り、tasks/summary.json にその事実が記録されている。
+            quantitative:
+              tasks_summary_complete:
+                description: tasks/summary.json が tasks の全タスクの終わり方（done / 止まったステージと状態）を持つ
+                equals: true
+          end_state:
+            - id: tasks_unfinished
+              description: >-
+                一つ以上のタスクが check か unit_test で止まり（ビルド失敗、scope 外の変更、lint 違反、単体テストの失敗、
+                カバレッジ不足のいずれかが子の中のやり直しの後も残る）、そのタスクの id と失敗の要旨が
+                tasks/summary.json の unfinished にある。
+            - id: unknown
+              description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
+          rollback:
+            - state: tasks_unfinished
+              stage: plan
+              carry: [unfinished_tasks]
+              max: 1
+        - id: integrate
+          name: Integrate
+          description: >-
+            tasks/summary.json で done のタスクの変更（tasks/<i>/repo/ の、check.json の changed_paths）を fixtures の
+            base に統合して codebase/ に置き、統合の記録（merged、skipped、conflicts、failures、changed_paths）を
+            merge.json に書く。同じパスを二つ以上のタスクが変えていれば conflicts に、統合後のビルドの失敗や
+            scope 外のパスは failures に書き、まとめて merge_failures に出す
+          artifacts:
+            reads: [tasks/, tasks.json]
+            writes: [codebase/, merge.json]
+            memory_in: [tasks]
+            memory_out: [merge_failures]
+          goal:
+            qualitative: >-
+              merge.json の merged に done の全タスクがあり、conflicts と failures が空で、codebase/ がそれらの変更を
+              統合した形でビルドでき、base から変わったパスがすべていずれかのタスクの scope にある。
             quantitative:
               merged_build_passed:
                 description: codebase/ の全 .py がバイトコンパイルできる
@@ -227,17 +430,20 @@ workflow:
               merged_paths_in_scope:
                 description: codebase/ で fixtures の base から変わったパスがすべて、いずれかのタスクの scope にある
                 equals: true
+              merge_conflict_count:
+                description: merge.json の conflicts と failures の数の合計
+                max: 0
           end_state:
-            - id: tasks_unfinished
+            - id: merge_failed
               description: >-
-                一つ以上のタスクの tasks/<i>/unit/report.json で、単体テストの失敗かカバレッジ不足が子の中の
-                やり直しの後も残っており、そのタスクの id と失敗の要旨が merge.json の unfinished にある。
+                merge.json の conflicts に同じパスを変えた二つ以上のタスクの組があるか、failures に統合後のビルドの
+                失敗か scope 外のパスが記録されている。
             - id: unknown
               description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
           rollback:
-            - state: tasks_unfinished
+            - state: merge_failed
               stage: plan
-              carry: [unfinished_tasks]
+              carry: [merge_failures]
               max: 1
     - id: assure
       name: Assure
@@ -246,7 +452,7 @@ workflow:
         qualitative: テストスイート全体が通り、マージを妨げるレビューの指摘が無い
         quantitative:
           suite_passed:
-            description: verification/report.json のテストスイート全体が一件以上あり、全て通っている
+            description: verification/results.json のテストスイート全体が一件以上あり、全て通っている
             equals: true
           blocking_comment_count:
             description: review.json の severity が blocking の指摘の数
@@ -256,38 +462,51 @@ workflow:
           name: Verify
           description: >-
             codebase/ でビルド、lint、テストスイート全体（カバレッジ付き）を走らせ、requirements.json の
-            見送りでない要件の受け入れ基準ごとに、そのテストの結果を照合して verification/report.json に書く
+            見送りでない要件の受け入れ基準ごとに、そのテストの結果を照合する。要旨（ビルドと lint の合否、失敗した
+            テスト、カバレッジとその不足、基準ごとの照合）を verification/report.json に、正規化したツールの出力の
+            全体を verification/results.json に書く
           artifacts:
             reads: [codebase/, requirements.json]
             writes: [verification/]
-            memory_out: [regressions, unmet_criteria]
+            memory_out: [regressions, unmet_criteria, suite_coverage_gaps, suite_lint_violations]
           goal:
             qualitative: >-
               verification/report.json に、codebase/ のビルド成功、lint 違反なし、テストスイート全体の全テスト通過、
-              カバレッジが基準以上、全ての受け入れ基準のテストが存在して通ったことが記録されている。
+              src/ 配下全体の行カバレッジが 0.85 以上、全ての受け入れ基準のテストが存在して passed であることが
+              記録されている。
             quantitative:
               suite_passed:
-                description: verification/report.json のテストスイート全体が一件以上あり、全て通っている
+                description: verification/results.json のテストスイート全体が一件以上あり、全て通っている
                 equals: true
               suite_coverage:
-                description: verification/report.json に記録された codebase/ の src/ 配下全体の行カバレッジ
+                description: verification/results.json に記録された codebase/ の src/ 配下全体の行カバレッジ
                 min: 0.85
               suite_lint_clean:
-                description: verification/report.json に記録された codebase/ の ruff の違反が無い
+                description: verification/results.json に記録された codebase/ の ruff の違反が無い
                 equals: true
               criteria_verified_ratio:
-                description: 受け入れ基準のうち、確かめるテストがテストスイートの結果にあって通ったものの割合
+                description: 受け入れ基準のうち、確かめるテストがテストスイートの結果にあって passed のものの割合
                 min: 1.0
           end_state:
             - id: regression
               description: >-
                 verification/report.json で、テストスイート全体のテストが一件以上 failed か error になっている
                 （各タスクの単体テストに含まれない既存のテストを含む）。失敗したテストの nodeid の一覧が
-                report.json の failed にある。この状態は criteria_unmet に優先する。
+                report.json の failed にある。この状態は criteria_unmet、coverage_short、lint_dirty に優先する。
             - id: criteria_unmet
               description: >-
                 verification/report.json でテストは全て通っているが、受け入れ基準のうち一つ以上で、確かめるはずの
-                テストがテストスイートの結果に無い。該当する基準の id とテストの nodeid が report.json の unmet にある。
+                テストがテストスイートの結果に無いか passed でない。該当する基準の id とテストの nodeid が
+                report.json の unmet にある。この状態は coverage_short と lint_dirty に優先する。
+            - id: coverage_short
+              description: >-
+                verification/report.json でテストは全て通り受け入れ基準も満たしているが、src/ 配下全体の行カバレッジが
+                0.85 未満で、カバーされていない行の一覧がファイルごとに report.json の coverage_gaps にある。
+                この状態は lint_dirty に優先する。
+            - id: lint_dirty
+              description: >-
+                verification/report.json でテストは全て通り受け入れ基準とカバレッジも満たしているが、lint の違反が
+                一件以上あり、その一覧（パス、行、規則）が report.json の lint_violations にある。
             - id: unknown
               description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
           rollback:
@@ -299,17 +518,39 @@ workflow:
               stage: plan
               carry: [unmet_criteria]
               max: 1
+            - state: coverage_short
+              stage: plan
+              carry: [suite_coverage_gaps]
+              max: 1
+            - state: lint_dirty
+              stage: plan
+              carry: [suite_lint_violations]
+              max: 1
         - id: review
           name: Review
           description: >-
             codebase/ の変更を design.json と tasks.json に照らしてレビューし、指摘（対象のファイルかコンポーネント、
-            重大度 severity、種類 kind、本文）を review.json に書く
+            重大度 severity（blocking / minor）、種類 kind（code / design の二値）、本文）を review.json に書く。
+            未実装の機能や要件の取りこぼしは kind code（対象はそのモジュールのパス）の指摘にする。memory_in の鍵は
+            後段への通過用ではなく、review は memory を読まない
           artifacts:
             reads: [codebase/, design.json, tasks.json]
             writes: [review.json]
-            memory_out: [review_comments, design_issues]
+            memory_out:
+              - review_comments
+              - design_issues
+              # 通過用（review → design の carry に並べるため）
+              - unfinished_tasks
+              - merge_failures
+              - regressions
+              - unmet_criteria
+              - suite_coverage_gaps
+              - suite_lint_violations
+              - rejection_feedback
           goal:
-            qualitative: review.json に、マージを妨げる（severity が blocking の）指摘が一つも無い。
+            qualitative: >-
+              review.json に、マージを妨げる（severity が blocking の）指摘が一つも無い。指摘の kind はすべて code か
+              design である。
             quantitative:
               blocking_comment_count:
                 description: review.json の severity が blocking の指摘の数
@@ -323,13 +564,22 @@ workflow:
             - id: changes_requested
               description: >-
                 review.json に、kind が code で severity が blocking の指摘が一つ以上あり、各指摘が codebase/ の
-                ファイルのパスを挙げている。kind が design で blocking の指摘は無い。
+                ファイルのパスを挙げている（未実装の機能の指摘を含む）。kind が design で blocking の指摘は無い。
             - id: unknown
               description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
           rollback:
             - state: design_flaw
               stage: design
-              carry: [design_issues]
+              carry:
+                - design_issues
+                - unfinished_tasks
+                - merge_failures
+                - regressions
+                - unmet_criteria
+                - suite_coverage_gaps
+                - suite_lint_violations
+                - review_comments
+                - rejection_feedback
               max: 1
             - state: changes_requested
               stage: plan
@@ -342,27 +592,41 @@ workflow:
         qualitative: リリースの記録がそろい、依頼者が承認している
         quantitative:
           release_manifest_valid:
-            description: release/manifest.json の版が base より新しく、ファイルごとのダイジェストから計算した全体のダイジェストが記録と一致する
+            description: release/manifest.json の版が base_version より新しく、ファイルごとのダイジェストから計算した全体のダイジェストが記録と一致する
             equals: true
       stages:
         - id: release
           name: Release
           description: >-
-            codebase/ のファイルごとのダイジェストと版を release/manifest.json に、要件ごとの変更点と見送った要件を
-            release/CHANGELOG.md に書き、依頼者にリリースの承認を尋ねて回答を release/approval.json に書く
+            codebase/ のファイルごとのダイジェストと版（新しい版と base の版 base_version）を release/manifest.json に、
+            要件ごとの変更点と見送った要件を release/CHANGELOG.md に書き、依頼者にリリースの承認を尋ねて回答
+            （approved、承認しない時は reason と kind（requirements: 要件の見送りや変更 / quality: 実装や成果物の
+            品質））を release/approval.json に書く。その場で答えが無ければ中断して待つ（approved: false で代用しない）
           user_input: true
           artifacts:
             reads: [codebase/, requirements.json, review.json]
             writes: [release/]
-            memory_out: [rejection_feedback]
+            memory_out:
+              - rejection_feedback
+              # 通過用（release → analyze の carry に並べるため）
+              - design_issues
+              - uncovered_components
+              - unassigned_requirements
+              - unfinished_tasks
+              - merge_failures
+              - regressions
+              - unmet_criteria
+              - suite_coverage_gaps
+              - suite_lint_violations
+              - review_comments
           goal:
             qualitative: >-
-              release/manifest.json が codebase/ の全てのファイルのダイジェストと新しい版を持ち、
+              release/manifest.json が codebase/ の全てのファイルのダイジェストと、base_version より新しい版を持ち、
               release/CHANGELOG.md が全ての要件（見送りを含む）に触れ、release/approval.json に依頼者の承認が
               記録されている。
             quantitative:
               release_manifest_valid:
-                description: release/manifest.json の版が base より新しく、ファイルごとのダイジェストから計算した全体のダイジェストが記録と一致する
+                description: release/manifest.json の版が base_version より新しく、ファイルごとのダイジェストから計算した全体のダイジェストが記録と一致する
                 equals: true
               changelog_covers_requirements:
                 description: release/manifest.json の requirements の id がすべて release/CHANGELOG.md に現れる
@@ -371,14 +635,33 @@ workflow:
                 description: release/approval.json の approved が true
                 equals: true
           end_state:
-            - id: rejected
+            - id: rejected_requirements
               description: >-
-                release/approval.json で依頼者がリリースを承認しておらず（approved が false）、承認しない理由が
-                reason に記録されている。
+                release/approval.json で依頼者がリリースを承認しておらず（approved が false）、kind が requirements で、
+                要件の見送りや変更に関わる理由が reason に記録されている。
+            - id: rejected_quality
+              description: >-
+                release/approval.json で依頼者がリリースを承認しておらず（approved が false）、kind が quality で、
+                実装や成果物の品質に関わる理由が reason に記録されている。
             - id: unknown
               description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
           rollback:
-            - state: rejected
+            - state: rejected_requirements
               stage: analyze
+              carry:
+                - rejection_feedback
+                - design_issues
+                - uncovered_components
+                - unassigned_requirements
+                - unfinished_tasks
+                - merge_failures
+                - regressions
+                - unmet_criteria
+                - suite_coverage_gaps
+                - suite_lint_violations
+                - review_comments
+              max: 1
+            - state: rejected_quality
+              stage: plan
               carry: [rejection_feedback]
               max: 1

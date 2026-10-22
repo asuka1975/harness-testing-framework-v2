@@ -44,10 +44,12 @@ from htf.testing.harness import DeferringUserIO, MarkerClassifier, QueueUserIO, 
 from . import metrics as _metrics
 from .stages import (
     Analyze,
+    Check,
     Code,
     Design,
     Implement,
     Intake,
+    Integrate,
     Plan,
     Release,
     Review,
@@ -89,6 +91,13 @@ def unit_coverage_min(workflow: Workflow) -> float:
     return float(criterion.min)
 
 
+def suite_coverage_min(workflow: Workflow) -> float:
+    """verify の suite_coverage の基準（定義が唯一の情報源）。"""
+    criterion = workflow.stage("verify").goal.quantitative["suite_coverage"]
+    assert criterion.min is not None
+    return float(criterion.min)
+
+
 def make_bodies(source: Source, workflow: Workflow) -> dict[tuple[str, str], StageBody]:
     return {
         (WORKFLOW_NAME, "intake"): Intake(source),
@@ -96,10 +105,12 @@ def make_bodies(source: Source, workflow: Workflow) -> dict[tuple[str, str], Sta
         (WORKFLOW_NAME, "design"): Design(source),
         (WORKFLOW_NAME, "plan"): Plan(source),
         (WORKFLOW_NAME, "implement"): Implement(),
-        (WORKFLOW_NAME, "verify"): Verify(source),
+        (WORKFLOW_NAME, "integrate"): Integrate(source),
+        (WORKFLOW_NAME, "verify"): Verify(source, suite_coverage_min(workflow)),
         (WORKFLOW_NAME, "review"): Review(source),
         (WORKFLOW_NAME, "release"): Release(source),
         (CHILD_NAME, "code"): Code(source),
+        (CHILD_NAME, "check"): Check(source),
         (CHILD_NAME, "unit_test"): UnitTest(source, unit_coverage_min(workflow)),
     }
 

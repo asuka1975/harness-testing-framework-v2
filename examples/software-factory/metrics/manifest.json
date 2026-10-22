@@ -23,6 +23,10 @@
         "blocking_comment_count",
         "release_manifest_valid",
         "changelog_covers_requirements",
-        "release_approved"
+        "release_approved",
+        "changed_paths_nonempty",
+        "tasks_summary_complete",
+        "merge_conflict_count",
+        "unassigned_requirement_count"
     ]
 }

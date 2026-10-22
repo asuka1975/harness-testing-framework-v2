@@ -1,75 +1,126 @@
-# software-factory の子ワークフロー。タスク一つにつき一回起動される（親: workflow.yaml の implement）
+# software-factory の子ワークフロー（版 0.2）。タスク一つにつき一回起動される（親: workflow.yaml の implement）
 # 親から memory の鍵 task（tasks.json の一項目: id, features, scope, tests, notes）を受け取る。
-# 作業ディレクトリは親の tasks/<i>/。code と unit_test は fixtures のコードベースに対して実際にツールを走らせる。
+# 作業ディレクトリは親の tasks/<i>/。code は変更を書くだけで、ビルド・lint・scope の検査は次の check が行い、
+# 不成立なら code へ戻す（最初のステージは unknown 以外の end_state を持てないので、検出と修正を分ける）。
+# check と unit_test は fixtures のコードベースに対して実際にツールを走らせる。
 workflow:
   name: implement-task
-  description: タスク一つの変更を書き、そのタスクの単体テストで確かめる
-  version: "0.1"
+  description: タスク一つの変更を書き、ビルド・lint・scope を検査し、そのタスクの単体テストで確かめる
+  version: "0.2"
   inputs: [task]
   phases:
     - id: develop
       name: Develop
-      description: タスクの変更を書き、単体テストで確かめる
+      description: タスクの変更を書き、検査と単体テストで確かめる
       goal:
         qualitative: タスクの変更がビルドでき、そのタスクの単体テストが全て通る
         quantitative:
           unit_tests_passed:
-            description: unit/report.json の単体テストが一件以上あり、全て通っている
+            description: unit/results.json の単体テストが一件以上あり、全て通っている
             equals: true
       stages:
         - id: code
           name: Code
           description: >-
-            fixtures のコードベースにタスクの変更を当てて repo/ に置き、ビルド（全 .py のバイトコンパイル）、
-            lint（ruff）、base から変わったパスと task.scope の照合を行って code.json に書く。
-            unit_test から test_failures / coverage_gaps を carry された再進入では、それを直した変更を書く
+            fixtures のコードベースにタスクの変更を当てて repo/ に置き、base から変わったパスを code.json に書く。
+            check から check_failures（ビルドのエラー、scope 外のパス、lint の違反のいずれか）を、unit_test から
+            test_failures / coverage_gaps を carry された再進入では、それを直した変更を書く
           artifacts:
             writes: [repo/, code.json]
-            memory_in: [task, test_failures, coverage_gaps]
+            memory_in: [task, check_failures, test_failures, coverage_gaps]
           goal:
             qualitative: >-
-              repo/ がタスクの変更を含み、code.json に、ビルドの成功、lint の違反が無いこと、
-              base から変わったパスがすべて task.scope の中にあることが記録されている。
+              repo/ がタスクの変更を含み（base から変わったパスが一つ以上あり）、code.json の changed_paths に
+              そのパスが記録されている。
             quantitative:
-              build_passed:
-                description: repo/ の全 .py がバイトコンパイルできる
-                equals: true
-              lint_clean:
-                description: repo/ に ruff の違反が無い
-                equals: true
-              changed_paths_in_scope:
-                description: repo/ で fixtures の base から変わったパスがすべて task.scope の中にある
+              changed_paths_nonempty:
+                description: repo/ で fixtures の base から変わったパスが一つ以上ある
                 equals: true
           end_state:
             - id: unknown
               description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
           rollback: []
+        - id: check
+          name: Check
+          description: >-
+            repo/ でビルド（全 .py のバイトコンパイル）と lint（ruff）を走らせ、base から変わったパスと task.scope を
+            照合して、正規化した結果（build のエラー、lint の違反、changed_paths、out_of_scope）を check.json に書く。
+            不成立があれば、その種類と一覧を check_failures に出す
+          artifacts:
+            reads: [repo/, code.json]
+            writes: [check.json]
+            memory_in: [task]
+            memory_out: [check_failures]
+          goal:
+            qualitative: >-
+              check.json に、ビルドの成功（エラーが無い）、lint の違反が無いこと、base から変わったパスがすべて
+              task.scope の中にあること（out_of_scope が空）が記録されている。
+            quantitative:
+              build_passed:
+                description: check.json の build にエラーが無く、対象の .py が一つ以上ある
+                equals: true
+              lint_clean:
+                description: check.json の lint に違反が無い
+                equals: true
+              changed_paths_in_scope:
+                description: check.json の out_of_scope が空（変わったパスがすべて task.scope の中にある）
+                equals: true
+          end_state:
+            - id: build_failed
+              description: >-
+                check.json の build に一件以上のエラー（パス、行、メッセージ）がある。この状態は out_of_scope と
+                lint_failed に優先する。
+            - id: out_of_scope
+              description: >-
+                check.json の build にエラーは無いが、out_of_scope に task.scope の外で変わったパスが一つ以上ある。
+                この状態は lint_failed に優先する。
+            - id: lint_failed
+              description: >-
+                check.json の build にエラーが無く out_of_scope も空だが、lint の violations に違反（パス、行、規則）が
+                一件以上ある。
+            - id: unknown
+              description: 上記に当てはまらない、または分類の確信度が低い。人間に差し戻す。
+          rollback:
+            - state: build_failed
+              stage: code
+              carry: [check_failures]
+              max: 1
+            - state: out_of_scope
+              stage: code
+              carry: [check_failures]
+              max: 1
+            - state: lint_failed
+              stage: code
+              carry: [check_failures]
+              max: 1
         - id: unit_test
           name: Unit test
           description: >-
-            repo/ でタスクのテストファイル（task.tests）だけを pytest とカバレッジで走らせ、結果を
-            unit/report.json に書く。失敗したテストを test_failures に、カバーされていない行を coverage_gaps に出す
+            repo/ でタスクのテストファイル（task.tests）だけを pytest とカバレッジで走らせ、要旨（失敗したテスト、
+            カバレッジとその基準、カバーされていない行）を unit/report.json に、正規化したツールの出力の全体を
+            unit/results.json に書く。失敗したテストを test_failures に、カバーされていない行を coverage_gaps に出す
           artifacts:
-            reads: [repo/, code.json]
+            reads: [repo/, check.json]
             writes: [unit/]
             memory_in: [task]
             memory_out: [test_failures, coverage_gaps]
           goal:
             qualitative: >-
-              unit/report.json に、task.tests の全てのテストが通り、task.scope のうち src/ 配下のファイルの
-              行カバレッジが基準以上であることが記録されている。
+              unit/report.json に、task.tests のテストが一件以上集まり全て通ったこと、task.scope のうち src/ 配下の
+              ファイルの行カバレッジが 0.9 以上であることが記録されている。
             quantitative:
               unit_tests_passed:
-                description: unit/report.json の単体テストが一件以上あり、全て通っている
+                description: unit/results.json の単体テストが一件以上あり、全て通っている
                 equals: true
               unit_coverage:
-                description: unit/report.json に記録された、task.scope のうち src/ 配下のファイルの行カバレッジ
+                description: unit/results.json に記録された、task.scope のうち src/ 配下のファイルの行カバレッジ
                 min: 0.9
           end_state:
             - id: tests_failing
               description: >-
-                unit/report.json で task.tests のテストが一件以上 failed か error になっている。失敗したテストの
-                nodeid の一覧が unit/report.json の failed にある。この状態は coverage_low に優先する。
+                unit/report.json で task.tests のテストが一件以上 failed か error になっているか、テストが一件も
+                集まっていない。失敗したテストの nodeid の一覧が unit/report.json の failed にある。この状態は
+                coverage_low に優先する。
             - id: coverage_low
               description: >-
                 unit/report.json で全てのテストは通っているが、task.scope のうち src/ 配下のファイルの行カバレッジが
