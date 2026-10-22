@@ -199,7 +199,7 @@ F1 時点: なし（まだワークフロー定義が存在しない）
 - 契約の不足（提案）: 進入回数（G-11）、子 run の終わり方を親の本体に（G-18）、`ask` の文脈（G-19）、`pass` の文言（G-04）
 - 文書の不足 13 件（adopting.md と雛形に反映）。構成: ruff がフィクスチャを見る（G-07）、ハーネスのテストが CI に無い（G-03）、ガードのテスト（G-15）
 - 投影（Codex の指摘 20）: 状態文書は 1 ファイルの切り詰めだけで総量の上限が無く、`reads: [codebase/]` のようにディレクトリを読むステージでは配下の全ファイルが判定結果（writes）より前に並ぶ。`reads` が本体の読取許可と分類器への投影の二役を兼ねる → 契約への提案 14.5（総量の上限 / writes を先に / 投影から外す印）。承認まで未実装
-- `MarkerClassifier`（14.5 (b) の実装で入れた退行。同日に修正）: writes 節を「次の `## ` で始まる行まで」で切ったため、成果物の Markdown（CHANGELOG.md の `## 追加` など）の見出しで節が途切れ、後ろの approval.json の印が読めず release が unknown になった（software factory 46 failed で検出）。節の切り出しはコードフェンスの中の `## ` 行を見出しと見なさない `writes_block()` にした。教訓: 状態文書の節の区切りは投影の形式（フェンス）を知った上で解析する。htf のテストは toy の成果物に Markdown の見出しが無いので見逃した → toy-minimal の成果物に見出し入りの Markdown を足すのは F5 で検討
+- `MarkerClassifier`（14.5 (b) の実装で入れた退行。同日に修正）: writes 節を「次の `## ` で始まる行まで」で切ったため、成果物の Markdown（CHANGELOG.md の `## 追加` など）の見出しで節が途切れ、後ろの approval.json の印が読めず release が unknown になった（software factory 46 failed で検出）。節の切り出しはコードフェンスの中の `## ` 行を見出しと見なさない `writes_block()` にした。教訓: 状態文書の節の区切りは投影の形式（フェンス）を知った上で解析する。htf のテストは toy の成果物に Markdown の見出しが無いので見逃した → 退行の再現テストを htf の `tests/test_f4_contract_proposals.py` に追加（見出し入りの CHANGELOG.md の後に印のファイルが並ぶ文書）。sf の `marker_truth` も `writes_block()` を使うようにした
 - 計画エージェントの誤り（過程）: 検証役への指示に「`reads` は分類器に渡らない」と書いた。正しくは `reads ∪ writes ∪ memory_in`（CONTRACT 第 5.4 節、adopting.md 3.6、スキーマ、`htf.runtime.project` のすべてが一致）。検証役が資料との不一致を指摘したので第 2 ターンで訂正し、観点 (b) の差分を取った。本体・契約・文書の修正は不要。再発防止: 検証役への前提は資料の節を指す形で書き、自分の要約を前提として書かない
 
 ### 実行した検証とその結果の要旨
